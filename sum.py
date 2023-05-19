@@ -18,7 +18,7 @@ mf = cl.mem_flags
 a_g = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=a_np)
 b_g = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=b_np)
 
-prg = cl.Program(ctx, Path("example.cl").read_text()).build()
+prg = cl.Program(ctx, Path("sum.cl").read_text()).build()
 
 res_g = cl.Buffer(ctx, mf.WRITE_ONLY, a_np.nbytes)
 
