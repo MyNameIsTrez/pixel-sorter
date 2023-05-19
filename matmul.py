@@ -61,7 +61,6 @@ h_c = numpy.empty((c_height, c_width)).astype(numpy.float32)
 kernel_params = {
     "block_size": block_size,
     "w_a": a_width,
-    "h_a": a_height,
     "w_b": b_width,
 }
 
@@ -74,7 +73,7 @@ else:
 code = Path("matmul.cl").read_text() % kernel_params
 prg = cl.Program(ctx, code).build(options=options)
 
-kernel = prg.matrixMul
+kernel = prg.matmul
 
 assert a_width % block_size == 0
 assert a_height % block_size == 0
