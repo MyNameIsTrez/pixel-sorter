@@ -101,5 +101,4 @@ matrixMul( __global float* C, __global float* A, __global float* B)
     // Write the block sub-matrix to device memory;
     // each thread writes one element
     C[get_global_id(1) * get_global_size(0) + get_global_id(0)] = Csub;
-
 }

@@ -13,6 +13,8 @@ import numpy
 import pyopencl as cl
 
 block_size = 16
+warmup_iterations = 100
+benchmark_iterations = 500
 
 # TODO: I don't get what the line below is for, but it makes this program crash for me
 # os.environ["PYOPENCL_CTX"] = "0:1"
@@ -73,7 +75,6 @@ code = Path("matmul.cl").read_text() % kernel_params
 prg = cl.Program(ctx, code).build(options=options)
 
 kernel = prg.matrixMul
-# print prg.binaries[0]
 
 assert a_width % block_size == 0
 assert a_height % block_size == 0
@@ -90,8 +91,8 @@ d_c_buf = cl.Buffer(ctx, mf.WRITE_ONLY, size=h_c.nbytes)
 
 push_time = time() - t1
 
-# warmup ----------------------------------------------------------------------
-for i in range(5):
+# GPU warmup ------------------------------------------------------------------
+for i in range(warmup_iterations):
     event = kernel(
         queue, h_c.shape[::-1], (block_size, block_size), d_c_buf, d_a_buf, d_b_buf
     )
@@ -99,18 +100,17 @@ for i in range(5):
 
 queue.finish()
 
-# actual benchmark ------------------------------------------------------------
+# GPU benchmark ---------------------------------------------------------------
 t1 = time()
 
-count = 20
-for i in range(count):
+for i in range(benchmark_iterations):
     event = kernel(
         queue, h_c.shape[::-1], (block_size, block_size), d_c_buf, d_a_buf, d_b_buf
     )
 
 event.wait()
 
-gpu_time = (time() - t1) / count
+gpu_time = (time() - t1) / benchmark_iterations
 
 # transfer device -> host -----------------------------------------------------
 t1 = time()
@@ -120,25 +120,34 @@ pull_time = time() - t1
 # timing output ---------------------------------------------------------------
 gpu_total_time = gpu_time + push_time + pull_time
 
-print("GPU push+compute+pull total [s]:", gpu_total_time)
-print("GPU push [s]:", push_time)
-print("GPU pull [s]:", pull_time)
-print("GPU compute (host-timed) [s]:", gpu_time)
+print(f"GPU push+compute+pull total [s]: {gpu_total_time}")
+print(f"GPU push [s]: {push_time}")
+print(f"GPU pull [s]: {pull_time}")
+print(f"GPU compute (host-timed) [s]: {gpu_time}")
 print(
-    "GPU compute (event-timed) [s]: ", (event.profile.end - event.profile.start) * 1e-9
+    f"GPU compute (event-timed) [s]: {(event.profile.end - event.profile.start) * 1e-9}"
 )
 
 gflop = h_c.size * (a_width * 2.0) / (1000**3.0)
 gflops = gflop / gpu_time
 
-print("\nGFlops/s:", gflops)
+print(f"\nGFlops/s: {gflops}")
 
-# cpu comparison --------------------------------------------------------------
+# CPU warmup ------------------------------------------------------------------
+
+for i in range(warmup_iterations):
+    h_c_cpu = numpy.dot(h_a, h_b)
+
+# CPU benchmark ---------------------------------------------------------------
 t1 = time()
-h_c_cpu = numpy.dot(h_a, h_b)
-cpu_time = time() - t1
 
-print("\nGPU==CPU:", numpy.allclose(h_c, h_c_cpu))
-print("\nCPU time (s)", cpu_time)
-print("\nGPU speedup (with transfer): ", cpu_time / gpu_total_time)
-print("GPU speedup (without transfer): ", cpu_time / gpu_time)
+for i in range(benchmark_iterations):
+    h_c_cpu = numpy.dot(h_a, h_b)
+
+cpu_time = (time() - t1) / benchmark_iterations
+
+assert numpy.allclose(h_c, h_c_cpu)
+
+print(f"\nCPU time [s]: {cpu_time}")
+print(f"\nGPU speedup (with transfer): {cpu_time / gpu_total_time}")
+print(f"GPU speedup (without transfer): {cpu_time / gpu_time}")
