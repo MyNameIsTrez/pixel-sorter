@@ -1,4 +1,4 @@
-__kernel void convert(
+__kernel void grayscale(
     read_only image2d_t src,
     write_only image2d_t dest
 ) {
@@ -15,13 +15,6 @@ __kernel void convert(
 
     int2 pos = (int2)(x, y);
     uint4 pix = read_imageui(src, sampler, pos);
-
-    // Apply checkerboard pattern
-    // if ((x + y) % 2 == 0) {
-    //     pix.x = 0;
-    //     pix.y = 0;
-    //     pix.z = 0;
-    // }
 
 	// Y = 0.2126 * R + 0.7152 * G + 0.0722 * B
 	// Source: https://en.wikipedia.org/wiki/Grayscale

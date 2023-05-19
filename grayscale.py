@@ -20,7 +20,7 @@ ctx = cl.create_some_context()
 queue = cl.CommandQueue(ctx)
 
 # Load and build OpenCL function
-prg = cl.Program(ctx, Path("checkerboard.cl").read_text()).build()
+prg = cl.Program(ctx, Path("grayscale.cl").read_text()).build()
 
 # Load and convert source image
 # This example code only works with RGBA images
@@ -39,7 +39,7 @@ fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.UNSIGNED_INT8)
 dest_buf = cl.Image(ctx, cl.mem_flags.WRITE_ONLY, fmt, shape=(w, h))
 
 # Execute OpenCL function
-prg.convert(queue, (w, h), None, src_buf, dest_buf)
+prg.grayscale(queue, (w, h), None, src_buf, dest_buf)
 
 # Copy result back to host
 dest = numpy.empty_like(src)
