@@ -1,0 +1,7 @@
+*
+!*/
+!**/*.py
+!**/*.cl
+!.gitignore
+!**/.placeholder
+!input/**/*
