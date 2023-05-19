@@ -13,8 +13,8 @@ import numpy
 import pyopencl as cl
 
 block_size = 16
-warmup_iterations = 100
-benchmark_iterations = 500
+warmup_iterations = 30
+benchmark_iterations = 100
 
 # TODO: I don't get what the line below is for, but it makes this program crash for me
 # os.environ["PYOPENCL_CTX"] = "0:1"
