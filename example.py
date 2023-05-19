@@ -32,6 +32,4 @@ res_np = np.empty_like(a_np)
 cl.enqueue_copy(queue, res_np, res_g)
 
 # Assert GPU result being identical to CPU numpy result
-print(res_np - (a_np + b_np))
-print(np.linalg.norm(res_np - (a_np + b_np)))
 assert np.allclose(res_np, a_np + b_np)
