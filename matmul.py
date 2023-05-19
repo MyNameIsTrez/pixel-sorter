@@ -1,3 +1,6 @@
+# Source:
+# http://homepages.math.uic.edu/~jan/mcs572f16/mcs572notes/lec29.html
+
 """
 This is a wiki example of PyOpenCL, provided by Eilif Muller,
 with only the addition of the setting of an environment variable
