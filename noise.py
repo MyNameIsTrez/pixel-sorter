@@ -11,7 +11,8 @@ import numpy
 import pyopencl as cl
 from PIL import Image
 
-filename = "elephant.png"
+# filename = "elephant.png"
+filename = "small.png"
 # filename = "tiny.png"
 
 # Initialize OpenCL
@@ -20,7 +21,7 @@ ctx = cl.create_some_context()
 queue = cl.CommandQueue(ctx)
 
 # Load and build OpenCL function
-prg = cl.Program(ctx, Path("grayscale.cl").read_text()).build()
+prg = cl.Program(ctx, Path("noise.cl").read_text()).build()
 
 # Load and convert source image
 # This example code only works with RGBA images
