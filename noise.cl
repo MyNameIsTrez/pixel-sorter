@@ -1,51 +1,50 @@
-// TODO: Use this instead of LCG?
-// #include <include/Random123/philox.h>
+#include <include/Random123/philox.h>
 
-#define uint64_t ulong
+// #define uint64_t ulong
 
-uint64_t round_up_power_2(
-	uint64_t a
-) {
-	if(a & (a - 1))
-	{
-		uint64_t i;
-		for(i = 0; a > 1; i++)
-		{
-			a >>= 1ull;
-		}
+// uint64_t round_up_power_2(
+// 	uint64_t a
+// ) {
+// 	if(a & (a - 1))
+// 	{
+// 		uint64_t i;
+// 		for(i = 0; a > 1; i++)
+// 		{
+// 			a >>= 1ull;
+// 		}
 
-		return 1ull << (i + 1ull);
-	}
+// 		return 1ull << (i + 1ull);
+// 	}
 
-	return a;
-}
+// 	return a;
+// }
 
-uint64_t lcg(
-	uint64_t capacity,
-	uint64_t val
-) {
-	uint64_t modulus = round_up_power_2(capacity);
+// uint64_t lcg(
+// 	uint64_t capacity,
+// 	uint64_t val
+// ) {
+// 	uint64_t modulus = round_up_power_2(capacity);
 
-	// TODO: Ask authors what I should do in place of random_function() here:
-	uint64_t multiplier_rand = 42424242;
+// 	// TODO: Ask authors what I should do in place of random_function() here:
+// 	uint64_t multiplier_rand = 42424242;
 
-	// Must be odd so it is coprime to modulus
-	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
+// 	// Must be odd so it is coprime to modulus
+// 	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
 
-	// TODO: Ask authors what I should do in place of random_function() here:
-	uint64_t addition_rand = 69696969;
+// 	// TODO: Ask authors what I should do in place of random_function() here:
+// 	uint64_t addition_rand = 69696969;
 
-	uint64_t addition = addition_rand % modulus;
+// 	uint64_t addition = addition_rand % modulus;
 
-	// Modulus must be power of two
-	// assert((modulus & (modulus - 1)) == 0);
-	// TODO: Replace with proper assert() somehow
-	if (!((modulus & (modulus - 1)) == 0)) {
-		printf("Assertion failure: Modulus wasn't power of two!\n");
-	}
+// 	// Modulus must be power of two
+// 	// assert((modulus & (modulus - 1)) == 0);
+// 	// TODO: Replace with proper assert() somehow
+// 	if (!((modulus & (modulus - 1)) == 0)) {
+// 		printf("Assertion failure: Modulus wasn't power of two!\n");
+// 	}
 
-	return ((val * multiplier) + addition) & (modulus - 1);
-}
+// 	return ((val * multiplier) + addition) & (modulus - 1);
+// }
 
 kernel void grayscale(
     read_only image2d_t src,
@@ -53,9 +52,9 @@ kernel void grayscale(
 ) {
 	// TODO: Test if using get_image_dim() instead of these two calls is faster
 	int width = get_image_width(src);
-	int height = get_image_height(src);
+	// int height = get_image_height(src);
 
-	int pixel_count = width * height;
+	// int pixel_count = width * height;
 
 	// lcg(pixel_count, 0);
 // 	printf("width: %d, height: %d, pixel_count: %d, lcg(0): %d\n", width, height, pixel_count, lcg(pixel_count, 0));
@@ -66,7 +65,7 @@ kernel void grayscale(
 	// int i2 = i1 + 1;
 	int x = get_global_id(0);
 	int y = get_global_id(1);
-	int i = y * width + x;
+	// int i = y * width + x;
 
 	// printf("x: %d, y: %d", x, y);
 
@@ -74,27 +73,27 @@ kernel void grayscale(
 
 	// int width = get_image_width(src);
 
-	// philox2x32_ctr_t c={{}};
-	// philox2x32_ukey_t uk={{}};
+	philox2x32_ctr_t c={{}};
+	philox2x32_ukey_t uk={{}};
 
 	// Seed
-	// uk.v[0] = 0;
+	uk.v[0] = 0;
 
-	// philox2x32_key_t k = philox2x32keyinit(uk);
+	philox2x32_key_t k = philox2x32keyinit(uk);
 
-    // c.v[0] = x;
-    // c.v[1] = y;
+    c.v[0] = x;
+    c.v[1] = y;
     // c.v[0] = gid;
-	// philox2x32_ctr_t r = philox2x32(c, k);
+	philox2x32_ctr_t r = philox2x32(c, k);
 	// printf("i1: %d, i2: %d, r.v[0]: %d\n", i1, i2, r.v[0]);
 
-	// uint R = r.v[0] & 255;
-	// uint G = r.v[0] & 255;
-	// uint B = r.v[0] & 255;
-	uint v = lcg(pixel_count, i) & 255;
-	uint R = v;
-	uint G = v;
-	uint B = v;
+	uint R = r.v[0] & 255;
+	uint G = r.v[0] & 255;
+	uint B = r.v[0] & 255;
+	// uint v = lcg(pixel_count, i) & 255;
+	// uint R = v;
+	// uint G = v;
+	// uint B = v;
 	uint A = 255;
 	uint4 pix = (uint4)(R, G, B, A);
 
