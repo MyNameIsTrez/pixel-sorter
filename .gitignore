@@ -5,3 +5,5 @@
 !.gitignore
 !**/.placeholder
 !input/**/*
+!include/**
+!foo.h
