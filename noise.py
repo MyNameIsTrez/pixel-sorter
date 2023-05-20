@@ -11,8 +11,8 @@ import numpy
 import pyopencl as cl
 from PIL import Image
 
-# filename = "elephant.png"
-filename = "small.png"
+filename = "elephant.png"
+# filename = "small.png"
 # filename = "tiny.png"
 
 # Initialize OpenCL

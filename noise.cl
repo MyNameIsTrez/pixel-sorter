@@ -1,6 +1,4 @@
-// #include <include/Random123/philox.h>
-
-#include "foo.h"
+#include <include/Random123/philox.h>
 
 __kernel void grayscale(
     read_only image2d_t src,
@@ -13,12 +11,23 @@ __kernel void grayscale(
 
 	int width = get_image_width(src);
 
-	uint4 pix = (uint4)(
+	philox4x32_ctr_t c={{}};
+	philox4x32_ukey_t uk={{}};
 
-		XD, 255, 255, 255);
-	// uint4 pix = (uint4)(lcg(y * width + x) / (float)0x7fffffff * 255, 255, 255, 255);
-	// uint4 pix = (uint4)(lcg(y * width + x) & 255, 255, 255, 255);
-	// printf("x: %d, y: %d, width: %d, result: %d\n", x, y, width, pix.x);
+	// Seed
+	uk.v[0] = 0;
+
+	philox4x32_key_t k = philox4x32keyinit(uk);
+
+    c.v[0] = x;
+    c.v[1] = y;
+	philox4x32_ctr_t r = philox4x32(c, k);
+
+	uint R = r.v[0] & 255;
+	uint G = r.v[1] & 255;
+	uint B = r.v[2] & 255;
+	uint A = 255;
+	uint4 pix = (uint4)(R, G, B, A);
 
     write_imageui(dest, pos, pix);
 }
