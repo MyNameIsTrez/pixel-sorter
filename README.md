@@ -4,7 +4,7 @@ Sorts the pixels of an image based on their color.
 
 It does this by repeatedly attempting to swap two random pixels, only doing so if that'd place them next to pixel neighbors with more similar colors.
 
-At the heart of the program is a port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `PhiloxBijectiveFunction` shuffling class.
+At the heart of the program lies a port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `PhiloxBijectiveFunction` shuffling class.
 
 ## Usage
 
