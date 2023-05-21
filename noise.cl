@@ -77,6 +77,42 @@ void swap(
 
     write_imageui(dest, pos2, pix1);
 }
+int get_shuffled_index(
+	int i,
+	int num_pixels
+) {
+	// assert(i < num_pixels);
+	// TODO: Replace with proper assert() somehow
+	if (!(i < num_pixels)) {
+		printf("Assertion failure: i < num_pixels was false!\n");
+	}
+	int shuffled = i;
+
+	philox2x32_ctr_t c={{}};
+	philox2x32_ukey_t uk={{}};
+
+	// Seed
+	uk.v[0] = 0;
+
+	philox2x32_key_t k = philox2x32keyinit(uk);
+
+	// This loop is guaranteed to terminate if i < num_pixels
+	do {
+		// shuffled = philox( shuffled );
+
+		c.v[0] = shuffled;
+		philox2x32_ctr_t r = philox2x32(c, k);
+		shuffled = r.v[0];
+		// 0x80000000 is 2147483648, compensating for philox2x32 returning signed ints
+		// ulong foo = ((ulong)shuffled) + ((ulong)0x80000000);
+		// ulong foo = convert_ulong(shuffled);
+		// printf("shuffled: %d, shuffled + half: %d, foo: %d\n", shuffled, shuffled + 0x80000000, foo);
+	} while (shuffled >= num_pixels);
+
+	// printf("shuffled: %d\n", shuffled);
+
+	return shuffled;
+}
 kernel void grayscale(
     read_only image2d_t src,
     write_only image2d_t dest
