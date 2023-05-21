@@ -1,5 +1,9 @@
 # PyOpenCL Color Sorter
 
+Sorts the pixels of an image based on their color.
+
+It does this by repeatedly swapping two random pixels, but only if that'd place them next to more similar neighbor pixel colors.
+
 ## Usage
 
 1. Clone this repository
