@@ -42,8 +42,8 @@ dest_buf = cl.Image(ctx, cl.mem_flags.WRITE_ONLY, fmt, shape=(w, h))
 
 # Execute OpenCL function
 assert w % 2 == 0, "This program currently doesn't support images with an odd width"
-# prg.grayscale(queue, (int(w / 2) * h, 1), None, src_buf, dest_buf)
-prg.grayscale(queue, (w, h), None, src_buf, dest_buf)
+prg.grayscale(queue, (int(w / 2) * h, 1), None, src_buf, dest_buf)
+# prg.grayscale(queue, (w, h), None, src_buf, dest_buf)
 
 # Copy result back to host
 dest = numpy.empty_like(src)

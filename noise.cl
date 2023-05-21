@@ -77,6 +77,7 @@ void swap(
 
     write_imageui(dest, pos2, pix1);
 }
+
 int get_shuffled_index(
 	int i,
 	int num_pixels
@@ -113,32 +114,30 @@ int get_shuffled_index(
 
 	return shuffled;
 }
+
 kernel void grayscale(
     read_only image2d_t src,
     write_only image2d_t dest
 ) {
 	// TODO: Test if using get_image_dim() instead of these two calls is faster
 	int width = get_image_width(src);
-	// int height = get_image_height(src);
+	int height = get_image_height(src);
 
-	// int pixel_count = width * height;
+	int pixel_count = width * height;
 
 	// lcg(pixel_count, 0);
 // 	printf("width: %d, height: %d, pixel_count: %d, lcg(0): %d\n", width, height, pixel_count, lcg(pixel_count, 0));
 // }
 
-	// int gid = get_global_id(0);
-	// int i1 = gid * 2;
-	// int i2 = i1 + 1;
-	int x = get_global_id(0);
-	int y = get_global_id(1);
+	int gid = get_global_id(0);
+	int i1 = gid * 2;
+	int i2 = i1 + 1;
+
+	// int x = get_global_id(0);
+	// int y = get_global_id(1);
 	// int i = y * width + x;
 
 	// printf("x: %d, y: %d", x, y);
-
-    int2 pos = (int2)(x, y);
-
-	// int width = get_image_width(src);
 
 	philox2x32_ctr_t c={{}};
 	philox2x32_ukey_t uk={{}};
@@ -148,21 +147,23 @@ kernel void grayscale(
 
 	philox2x32_key_t k = philox2x32keyinit(uk);
 
-    c.v[0] = x;
-    c.v[1] = y;
-    // c.v[0] = gid;
+    // c.v[0] = x;
+    // c.v[1] = y;
+    c.v[0] = gid;
 	philox2x32_ctr_t r = philox2x32(c, k);
 	// printf("i1: %d, i2: %d, r.v[0]: %d\n", i1, i2, r.v[0]);
 
-	uint R = r.v[0] & 255;
-	uint G = r.v[0] & 255;
-	uint B = r.v[0] & 255;
+	// uint R = r.v[0] & 255;
+	// uint G = r.v[0] & 255;
+	// uint B = r.v[0] & 255;
 	// uint v = lcg(pixel_count, i) & 255;
 	// uint R = v;
 	// uint G = v;
 	// uint B = v;
-	uint A = 255;
-	uint4 pix = (uint4)(R, G, B, A);
+	// uint A = 255;
+	// uint4 pix = (uint4)(R, G, B, A);
 
-    write_imageui(dest, pos, pix);
+	int shuffled_i1 = get_shuffled_index(i1, pixel_count);
+	int shuffled_i2 = get_shuffled_index(i2, pixel_count);
+	swap(src, dest, width, shuffled_i1, shuffled_i2);
 }
