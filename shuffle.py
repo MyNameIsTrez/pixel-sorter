@@ -5,9 +5,12 @@ import numpy
 import pyopencl as cl
 from PIL import Image
 
+shuffle_count = 10
+
 # filename = "all_colors.png"
 # filename = "elephant.png"
-filename = "small.png"
+filename = "palette.bmp"
+# filename = "small.png"
 # filename = "tiny.png"
 
 
@@ -40,7 +43,8 @@ def main():
 
     # Execute OpenCL function
     assert w % 2 == 0, "This program currently doesn't support images with an odd width"
-    prg.shuffle_(queue, (int(w / 2) * h, 1), None, src_buf, dest_buf)
+    for _ in range(shuffle_count):
+        prg.shuffle_(queue, (int(w / 2) * h, 1), None, src_buf, dest_buf)
 
     # Copy result back to host
     dest = numpy.empty_like(src)

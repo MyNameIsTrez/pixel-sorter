@@ -1,9 +1,9 @@
 import numpy as np
 from PIL import Image
 
-# filename = "all_colors.png"
+filename = "all_colors.png"
 # filename = "elephant.png"
-filename = "small.png"
+# filename = "small.png"
 # filename = "tiny.png"
 
 
