@@ -51,6 +51,19 @@
 // 	return ((val * multiplier) + addition) & (modulus - 1);
 // }
 
+// Source: https://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
+uint rand(uint2 *state)
+{
+    enum { A=4294883355U };
+    uint x=(*state).x, c=(*state).y;  // Unpack the state
+    uint res=x^c;                     // Calculate the result
+    uint hi=mul_hi(x,A);              // Step the RNG
+    x=x*A+c;
+    c=hi+(x<c);
+    *state=(uint2)(x,c);               // Pack the state back up
+    return res;                       // Return the next result
+}
+
 uint32_t mulhilo(
 	uint64_t a,
 	uint32_t b,
@@ -79,7 +92,8 @@ uint64_t get_cipher_bits(uint64_t capacity)
 
 uint64_t philox(
 	uint64_t capacity,
-	uint64_t val
+	uint64_t val,
+	uint2 *rand_state
 ) {
 	uint64_t M0 = 0xD2B74407B1CE6E93;
     uint32_t key[NUM_ROUNDS];
@@ -96,7 +110,7 @@ uint64_t philox(
 	for(int i = 0; i < NUM_ROUNDS; i++)
 	{
 		// TODO: Ask authors what I should do in place of random_function() here:
-		key[i] = 42424242;
+		key[i] = rand(rand_state);
 	}
 
 	uint32_t state[2] = {
@@ -164,7 +178,8 @@ void swap(
 
 int get_shuffled_index(
 	int i,
-	int num_pixels
+	int num_pixels,
+	uint2 *rand_state
 ) {
 	// assert(i < num_pixels);
 	// TODO: Replace with proper assert() somehow
@@ -176,7 +191,7 @@ int get_shuffled_index(
 	// This loop is guaranteed to terminate if i < num_pixels
 	do {
 		// shuffled = lcg(num_pixels, shuffled);
-		shuffled = philox(num_pixels, shuffled);
+		shuffled = philox(num_pixels, shuffled, rand_state);
 	} while (shuffled >= num_pixels);
 
 	return shuffled;
@@ -212,21 +227,21 @@ int get_score(
 		for (int dx = -KERNEL_SIDE_LENGTH; dx <= KERNEL_SIDE_LENGTH; dx++) {
 			int2 neighbor = (int2){center.x + dx, center.y + dy};
 
-			if (neighbor.x < 0 || neighbor.x >= width
+			if ((center.x == neighbor.x && center.y == neighbor.y)
+			|| neighbor.x < 0 || neighbor.x >= width
 			|| neighbor.y < 0 || neighbor.y >= height) {
 				continue;
 			}
 
-			// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
-			// 	printf("neighbor: {%d,%d}, dims: {%d,%d}\n", neighbor.x, neighbor.y, width, height);
-			// }
+			// printf("center: {%d,%d}, neighbor: {%d,%d}, dims: {%d,%d}\n", center.x, center.y, neighbor.x, neighbor.y, width, height);
 
 			uint4 neighbor_pixel = get_pixel(src, neighbor);
 
 			score += get_squared_color_difference(src, pixel, neighbor_pixel);
 
 			// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
-			// 	printf("score: %d\n", score);
+			// if (gid == 1 && center.x == 1 && center.y == 0 && pixel.x == 150) {
+			// 	printf("gid: %d, neighbor: {%d,%d}, score: %d, dims: {%d,%d}, pixel: {%d,%d,%d}, neighbor_pixel: {%d,%d,%d}\n", gid, neighbor.x, neighbor.y, score, width, height, pixel.x, pixel.y, pixel.z, neighbor_pixel.x, neighbor_pixel.y, neighbor_pixel.z);
 			// }
 		}
 	}
@@ -260,7 +275,15 @@ bool should_swap(
 	int score_difference = i1_score_difference + i2_score_difference;
 
 	// if (gid == 1) {
-	// printf("Y: gid %d, swap pos1 {%d,%d} with pos2 {%d,%d}, score difference: %d from i1 {%d,%d,%d}, i2 {%d,%d,%d}\n", gid, pos1.x, pos1.y, pos2.x, pos2.y, score_difference, i1_old_score, i1_new_score, i1_score_difference, i2_old_score, i2_new_score, i2_score_difference);
+	// if (pos1.x == 1 && pos1.y == 0 && pos2.x == 3 && pos2.y == 1) {
+		// printf("{0, 0}: {%d,%d,%d}", get_pixel(src, (int2)(0, 0)).x, get_pixel(src, (int2)(0, 0)).y, get_pixel(src, (int2)(0, 0)).z);
+		// printf("{1, 0}: {%d,%d,%d}", get_pixel(src, (int2)(1, 0)).x, get_pixel(src, (int2)(1, 0)).y, get_pixel(src, (int2)(1, 0)).z);
+		// printf("{2, 0}: {%d,%d,%d}", get_pixel(src, (int2)(2, 0)).x, get_pixel(src, (int2)(2, 0)).y, get_pixel(src, (int2)(2, 0)).z);
+		// printf("{0, 1}: {%d,%d,%d}", get_pixel(src, (int2)(0, 1)).x, get_pixel(src, (int2)(0, 1)).y, get_pixel(src, (int2)(0, 1)).z);
+		// printf("{1, 1}: {%d,%d,%d}", get_pixel(src, (int2)(1, 1)).x, get_pixel(src, (int2)(1, 1)).y, get_pixel(src, (int2)(1, 1)).z);
+		// printf("{2, 1}: {%d,%d,%d}", get_pixel(src, (int2)(2, 1)).x, get_pixel(src, (int2)(2, 1)).y, get_pixel(src, (int2)(2, 1)).z);
+
+		// printf("Y: gid %d, swap pos1 {%d,%d} with pos2 {%d,%d}, score difference: %d from i1 {%d,%d,%d}, i2 {%d,%d,%d}\n", gid, pos1.x, pos1.y, pos2.x, pos2.y, score_difference, i1_old_score, i1_new_score, i1_score_difference, i2_old_score, i2_new_score, i2_score_difference);
 	// }
 
 	return score_difference < 0;
@@ -268,7 +291,8 @@ bool should_swap(
 
 kernel void shuffle_(
 	read_only image2d_t src,
-	write_only image2d_t dest
+	write_only image2d_t dest,
+	uint32_t iteration_number
 ) {
 	// TODO: Test if using get_image_dim() instead of these two calls is faster
 	int width = get_image_width(src);
@@ -280,8 +304,10 @@ kernel void shuffle_(
 	int i1 = gid * 2;
 	int i2 = i1 + 1;
 
-	int shuffled_i1 = get_shuffled_index(i1, pixel_count);
-	int shuffled_i2 = get_shuffled_index(i2, pixel_count);
+	uint2 rand_state = (uint2)(gid, iteration_number);
+
+	int shuffled_i1 = get_shuffled_index(i1, pixel_count, &rand_state);
+	int shuffled_i2 = get_shuffled_index(i2, pixel_count, &rand_state);
 
 	int2 pos1 = get_pos(shuffled_i1, width);
 	int2 pos2 = get_pos(shuffled_i2, width);

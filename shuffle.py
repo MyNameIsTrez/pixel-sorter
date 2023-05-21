@@ -1,15 +1,16 @@
 import os
 from pathlib import Path
 
-import numpy
+import numpy as np
 import pyopencl as cl
 from PIL import Image
 
-shuffle_count = 1000
+iteration_count = 100
 
-# filename = "all_colors.png"
+filename = "all_colors.png"
 # filename = "elephant.png"
-filename = "palette.bmp"
+# filename = "grid.png"
+# filename = "palette.png"
 # filename = "small.png"
 # filename = "tiny.png"
 
@@ -17,6 +18,7 @@ filename = "palette.bmp"
 def main():
     # Initialize OpenCL
     os.environ["PYOPENCL_CTX"] = "0"
+    os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
     ctx = cl.create_some_context()
     queue = cl.CommandQueue(ctx)
 
@@ -26,7 +28,7 @@ def main():
     # Load and convert source image
     # This example code only works with RGBA images
     src_img = Image.open(f"input/{filename}").convert("RGBA")
-    src = numpy.array(src_img)
+    src = np.array(src_img)
 
     # Get size of source image (note height is stored at index 0)
     h = src.shape[0]
@@ -43,11 +45,20 @@ def main():
 
     assert w % 2 == 0, "This program doesn't support images with an odd width"
 
-    dest = numpy.empty_like(src)
+    dest = np.empty_like(src)
 
     # Execute OpenCL function
-    for _ in range(shuffle_count):
-        prg.shuffle_(queue, (int(w / 2) * h, 1), None, src_buf, dest_buf)
+    for iteration_number in range(iteration_count):
+        # print(f"Iteration {iteration_number + 1}:")
+
+        prg.shuffle_(
+            queue,
+            (int(w / 2) * h, 1),
+            None,
+            src_buf,
+            dest_buf,
+            np.uint32(iteration_number),
+        )
 
         # TODO: Copy the dst buffer to the src buffer!
         # cl.enqueue_copy(queue, src, dest_buf, origin=(0, 0), region=(w, h))
