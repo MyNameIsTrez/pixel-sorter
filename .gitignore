@@ -1,7 +1,8 @@
 *
 !*/
-!**/*.py
-!**/*.cl
-!.gitignore
-!**/.placeholder
 !input/**/*
+!**/.placeholder
+!.gitignore
+!**/*.cl
+!**/*.py
+!requirements.txt
