@@ -1,6 +1,6 @@
 #define uint64_t ulong
 
-uint64_t round_up_power_2(
+uint64_t round_up_to_power_of_2(
 	uint64_t a
 ) {
 	if(a & (a - 1))
@@ -21,7 +21,7 @@ uint64_t lcg(
 	uint64_t capacity,
 	uint64_t val
 ) {
-	uint64_t modulus = round_up_power_2(capacity);
+	uint64_t modulus = round_up_to_power_of_2(capacity);
 
 	// TODO: Ask authors what I should do in place of random_function() here:
 	uint64_t multiplier_rand = 42424242;
@@ -40,6 +40,8 @@ uint64_t lcg(
 	if (!((modulus & (modulus - 1)) == 0)) {
 		printf("Assertion failure: Modulus wasn't power of two!\n");
 	}
+
+	// printf("modulus: %d, multiplier: %d, addition: %d, returned: %d\n", modulus, multiplier, addition, ((val * multiplier) + addition) & (modulus - 1));
 
 	return ((val * multiplier) + addition) & (modulus - 1);
 }
