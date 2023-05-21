@@ -1,55 +1,14 @@
+#define NUM_ROUNDS 24
+#define KERNEL_SIDE_LENGTH 1
+#define MODE PHILOX
+
 #define uint32_t uint
 #define uint64_t ulong
 
-#define NUM_ROUNDS 24
-
-#define KERNEL_SIDE_LENGTH 1
-
-// uint64_t round_up_to_power_of_2(
-// 	uint64_t a
-// ) {
-// 	if(a & (a - 1))
-// 	{
-// 		uint64_t i;
-// 		for(i = 0; a > 1; i++)
-// 		{
-// 			a >>= 1ull;
-// 		}
-
-// 		return 1ull << (i + 1ull);
-// 	}
-
-// 	return a;
-// }
-
-// uint64_t lcg(
-// 	uint64_t capacity,
-// 	uint64_t val
-// ) {
-// 	uint64_t modulus = round_up_to_power_of_2(capacity);
-
-// 	// TODO: Ask authors what I should do in place of random_function() here:
-// 	uint64_t multiplier_rand = 42424242;
-
-// 	// Must be odd so it is coprime to modulus
-// 	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
-
-// 	// TODO: Ask authors what I should do in place of random_function() here:
-// 	uint64_t addition_rand = 69696969;
-
-// 	uint64_t addition = addition_rand % modulus;
-
-// 	// Modulus must be power of two
-// 	// assert((modulus & (modulus - 1)) == 0);
-// 	// TODO: Replace with proper assert() somehow
-// 	if (!((modulus & (modulus - 1)) == 0)) {
-// 		printf("Assertion failure: Modulus wasn't power of two!\n");
-// 	}
-
-// 	// printf("modulus: %d, multiplier: %d, addition: %d, returned: %d\n", modulus, multiplier, addition, ((val * multiplier) + addition) & (modulus - 1));
-
-// 	return ((val * multiplier) + addition) & (modulus - 1);
-// }
+enum MODE {
+	LCG,
+	PHILOX,
+};
 
 // Source: https://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
 uint rand(uint2 *state)
@@ -62,6 +21,53 @@ uint rand(uint2 *state)
     c=hi+(x<c);
     *state=(uint2)(x,c);               // Pack the state back up
     return res;                       // Return the next result
+}
+
+uint64_t round_up_to_power_of_2(
+	uint64_t a
+) {
+	if(a & (a - 1))
+	{
+		uint64_t i;
+		for(i = 0; a > 1; i++)
+		{
+			a >>= 1ull;
+		}
+
+		return 1ull << (i + 1ull);
+	}
+
+	return a;
+}
+
+uint64_t lcg(
+	uint64_t capacity,
+	uint64_t val,
+	uint2 *rand_state
+) {
+	uint64_t modulus = round_up_to_power_of_2(capacity);
+
+	// TODO: Ask authors what I should do in place of random_function() here:
+	uint64_t multiplier_rand = rand(rand_state);
+
+	// Must be odd so it is coprime to modulus
+	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
+
+	// TODO: Ask authors what I should do in place of random_function() here:
+	uint64_t addition_rand = rand(rand_state);
+
+	uint64_t addition = addition_rand % modulus;
+
+	// Modulus must be power of two
+	// assert((modulus & (modulus - 1)) == 0);
+	// TODO: Replace with proper assert() somehow
+	if (!((modulus & (modulus - 1)) == 0)) {
+		printf("Assertion failure: Modulus wasn't power of two!\n");
+	}
+
+	// printf("modulus: %d, multiplier: %d, addition: %d, returned: %d\n", modulus, multiplier, addition, ((val * multiplier) + addition) & (modulus - 1));
+
+	return ((val * multiplier) + addition) & (modulus - 1);
 }
 
 uint32_t mulhilo(
@@ -190,8 +196,11 @@ int get_shuffled_index(
 
 	// This loop is guaranteed to terminate if i < num_pixels
 	do {
-		// shuffled = lcg(num_pixels, shuffled);
-		shuffled = philox(num_pixels, shuffled, rand_state);
+		if (MODE == LCG) {
+			shuffled = lcg(num_pixels, shuffled, rand_state);
+		} else {
+			shuffled = philox(num_pixels, shuffled, rand_state);
+		}
 	} while (shuffled >= num_pixels);
 
 	return shuffled;

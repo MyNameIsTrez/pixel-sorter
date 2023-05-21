@@ -5,14 +5,14 @@ import numpy as np
 import pyopencl as cl
 from PIL import Image
 
-iteration_count = 100
-
-filename = "all_colors.png"
-# filename = "elephant.png"
+# filename = "all_colors.png"
+filename = "elephant.png"
 # filename = "grid.png"
 # filename = "palette.png"
 # filename = "small.png"
 # filename = "tiny.png"
+
+iteration_count = 1000
 
 
 def main():
