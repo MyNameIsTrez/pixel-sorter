@@ -2,7 +2,7 @@
 
 Sorts the pixels of an image based on their color.
 
-It does this by repeatedly swapping two random pixels, but only if that'd place them next to more similar neighbor pixel colors.
+It does this by repeatedly attempting to swap two random pixels, only doing so if that'd place them next to pixel neighbors with more similar colors.
 
 ## Usage
 
