@@ -3,7 +3,7 @@
 
 #define NUM_ROUNDS 24
 
-#define KERNEL_SIDE_LENGTH 2
+#define KERNEL_SIDE_LENGTH 1
 
 // uint64_t round_up_to_power_of_2(
 // 	uint64_t a
@@ -132,6 +132,14 @@ uint4 get_pixel(
 	return read_imageui(src, sampler, pos);
 }
 
+void set_pixel(
+	write_only image2d_t dest,
+	int2 pos,
+	uint4 pixel
+) {
+	write_imageui(dest, pos, pixel);
+}
+
 int2 get_pos(
 	int shuffled_i,
 	int width
@@ -150,8 +158,8 @@ void swap(
 	uint4 pixel1 = get_pixel(src, pos1);
 	uint4 pixel2 = get_pixel(src, pos2);
 
-	write_imageui(dest, pos1, pixel2);
-	write_imageui(dest, pos2, pixel1);
+	set_pixel(dest, pos1, pixel2);
+	set_pixel(dest, pos2, pixel1);
 }
 
 int get_shuffled_index(
@@ -195,7 +203,8 @@ int get_score(
 	int width,
 	int height,
 	int2 center,
-	uint4 pixel
+	uint4 pixel,
+	int gid
 ) {
 	int score = 0;
 
@@ -203,15 +212,28 @@ int get_score(
 		for (int dx = -KERNEL_SIDE_LENGTH; dx <= KERNEL_SIDE_LENGTH; dx++) {
 			int2 neighbor = (int2){center.x + dx, center.y + dy};
 
-			if (neighbor.x < 0 || neighbor.y >= width
-			 || neighbor.y < 0 || neighbor.y >= height)
+			if (neighbor.x < 0 || neighbor.x >= width
+			|| neighbor.y < 0 || neighbor.y >= height) {
 				continue;
+			}
+
+			// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
+			// 	printf("neighbor: {%d,%d}, dims: {%d,%d}\n", neighbor.x, neighbor.y, width, height);
+			// }
 
 			uint4 neighbor_pixel = get_pixel(src, neighbor);
 
 			score += get_squared_color_difference(src, pixel, neighbor_pixel);
+
+			// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
+			// 	printf("score: %d\n", score);
+			// }
 		}
 	}
+
+	// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
+	// 	printf("score: %d\n", score);
+	// }
 
 	return score;
 }
@@ -221,15 +243,27 @@ bool should_swap(
 	int width,
 	int height,
 	int2 pos1,
-	int2 pos2
+	int2 pos2,
+	int gid
 ) {
 	uint4 pixel1 = get_pixel(src, pos1);
 	uint4 pixel2 = get_pixel(src, pos2);
 
-	int i1_score_difference = -get_score(src, width, height, pos1, pixel1) + get_score(src, width, height, pos1, pixel2);
-	int i2_score_difference = -get_score(src, width, height, pos2, pixel2) + get_score(src, width, height, pos2, pixel1);
+	int i1_old_score = get_score(src, width, height, pos1, pixel1, gid);
+	int i1_new_score = get_score(src, width, height, pos1, pixel2, gid);
+	int i1_score_difference = -i1_old_score + i1_new_score;
 
-	return i1_score_difference + i2_score_difference < 0;
+	int i2_old_score = get_score(src, width, height, pos2, pixel2, gid);
+	int i2_new_score = get_score(src, width, height, pos2, pixel1, gid);
+	int i2_score_difference = -i2_old_score + i2_new_score;
+
+	int score_difference = i1_score_difference + i2_score_difference;
+
+	// if (gid == 1) {
+	// printf("Y: gid %d, swap pos1 {%d,%d} with pos2 {%d,%d}, score difference: %d from i1 {%d,%d,%d}, i2 {%d,%d,%d}\n", gid, pos1.x, pos1.y, pos2.x, pos2.y, score_difference, i1_old_score, i1_new_score, i1_score_difference, i2_old_score, i2_new_score, i2_score_difference);
+	// }
+
+	return score_difference < 0;
 }
 
 kernel void shuffle_(
@@ -252,7 +286,15 @@ kernel void shuffle_(
 	int2 pos1 = get_pos(shuffled_i1, width);
 	int2 pos2 = get_pos(shuffled_i2, width);
 
-	if (should_swap(src, width, height, pos1, pos2)) {
+	// TODO: Stop unnecessarily passing gid to a bunch of functions!
+	if (should_swap(src, width, height, pos1, pos2, gid)) {
 		swap(src, dest, pos1, pos2);
 	}
+
+	// TODO: A fence may be good enough and faster than a barrier?
+	// barrier(CLK_LOCAL_MEM_FENCE);
+
+	// Copy the dst buffer to the src buffer
+	// set_pixel(src, pos1, get_pixel(dest, pos1));
+	// set_pixel(src, pos2, get_pixel(dest, pos2));
 }

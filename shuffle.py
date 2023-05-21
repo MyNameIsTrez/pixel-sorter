@@ -5,7 +5,7 @@ import numpy
 import pyopencl as cl
 from PIL import Image
 
-shuffle_count = 10
+shuffle_count = 1000
 
 # filename = "all_colors.png"
 # filename = "elephant.png"
@@ -41,14 +41,21 @@ def main():
     dest_buf = cl.Image(ctx, cl.mem_flags.WRITE_ONLY, fmt, shape=(w, h))
     cl.enqueue_copy(queue, dest_buf, src, origin=(0, 0), region=(w, h))
 
+    assert w % 2 == 0, "This program doesn't support images with an odd width"
+
+    dest = numpy.empty_like(src)
+
     # Execute OpenCL function
-    assert w % 2 == 0, "This program currently doesn't support images with an odd width"
     for _ in range(shuffle_count):
         prg.shuffle_(queue, (int(w / 2) * h, 1), None, src_buf, dest_buf)
 
-    # Copy result back to host
-    dest = numpy.empty_like(src)
-    cl.enqueue_copy(queue, dest, dest_buf, origin=(0, 0), region=(w, h))
+        # TODO: Copy the dst buffer to the src buffer!
+        # cl.enqueue_copy(queue, src, dest_buf, origin=(0, 0), region=(w, h))
+
+        # Copy result back to host
+        cl.enqueue_copy(queue, dest, dest_buf, origin=(0, 0), region=(w, h))
+        # TODO: Find a more efficient approach than recreating the entire image
+        src_buf = cl.image_from_array(ctx, dest, 4)
 
     # Convert image and save it
     dest_img = Image.fromarray(dest)
