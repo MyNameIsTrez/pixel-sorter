@@ -21,7 +21,7 @@ ctx = cl.create_some_context()
 queue = cl.CommandQueue(ctx)
 
 # Load and build OpenCL function
-prg = cl.Program(ctx, Path("noise.cl").read_text()).build(options="-I.")
+prg = cl.Program(ctx, Path("noise.cl").read_text()).build()
 
 # Load and convert source image
 # This example code only works with RGBA images
