@@ -1,49 +1,118 @@
+#define uint32_t uint
 #define uint64_t ulong
 
-uint64_t round_up_to_power_of_2(
-	uint64_t a
+#define NUM_ROUNDS 24
+
+// uint64_t round_up_to_power_of_2(
+// 	uint64_t a
+// ) {
+// 	if(a & (a - 1))
+// 	{
+// 		uint64_t i;
+// 		for(i = 0; a > 1; i++)
+// 		{
+// 			a >>= 1ull;
+// 		}
+
+// 		return 1ull << (i + 1ull);
+// 	}
+
+// 	return a;
+// }
+
+// uint64_t lcg(
+// 	uint64_t capacity,
+// 	uint64_t val
+// ) {
+// 	uint64_t modulus = round_up_to_power_of_2(capacity);
+
+// 	// TODO: Ask authors what I should do in place of random_function() here:
+// 	uint64_t multiplier_rand = 42424242;
+
+// 	// Must be odd so it is coprime to modulus
+// 	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
+
+// 	// TODO: Ask authors what I should do in place of random_function() here:
+// 	uint64_t addition_rand = 69696969;
+
+// 	uint64_t addition = addition_rand % modulus;
+
+// 	// Modulus must be power of two
+// 	// assert((modulus & (modulus - 1)) == 0);
+// 	// TODO: Replace with proper assert() somehow
+// 	if (!((modulus & (modulus - 1)) == 0)) {
+// 		printf("Assertion failure: Modulus wasn't power of two!\n");
+// 	}
+
+// 	// printf("modulus: %d, multiplier: %d, addition: %d, returned: %d\n", modulus, multiplier, addition, ((val * multiplier) + addition) & (modulus - 1));
+
+// 	return ((val * multiplier) + addition) & (modulus - 1);
+// }
+
+uint32_t mulhilo(
+	uint64_t a,
+	uint32_t b,
+	uint32_t *hip
 ) {
-	if(a & (a - 1))
-	{
-		uint64_t i;
-		for(i = 0; a > 1; i++)
-		{
-			a >>= 1ull;
-		}
-
-		return 1ull << (i + 1ull);
-	}
-
-	return a;
+    uint64_t product = a * convert_ulong(b);
+    *hip = product >> 32;
+    return convert_uint(product);
 }
 
-uint64_t lcg(
+uint64_t get_cipher_bits(uint64_t capacity)
+{
+	if(capacity == 0)
+		return 0;
+
+	uint64_t i = 0;
+	capacity--;
+	while(capacity != 0)
+	{
+		i++;
+		capacity >>= 1;
+	}
+
+	return max(i, convert_ulong(4));
+}
+
+uint64_t philox(
 	uint64_t capacity,
 	uint64_t val
 ) {
-	uint64_t modulus = round_up_to_power_of_2(capacity);
+	uint64_t M0 = 0xD2B74407B1CE6E93;
+    uint32_t key[NUM_ROUNDS];
 
-	// TODO: Ask authors what I should do in place of random_function() here:
-	uint64_t multiplier_rand = 42424242;
+	uint64_t total_bits = get_cipher_bits(capacity);
 
-	// Must be odd so it is coprime to modulus
-	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
+	// Half bits rounded down
+	uint64_t left_side_bits = total_bits / 2;
+	uint64_t left_side_mask = (1ull << left_side_bits) - 1;
 
-	// TODO: Ask authors what I should do in place of random_function() here:
-	uint64_t addition_rand = 69696969;
-
-	uint64_t addition = addition_rand % modulus;
-
-	// Modulus must be power of two
-	// assert((modulus & (modulus - 1)) == 0);
-	// TODO: Replace with proper assert() somehow
-	if (!((modulus & (modulus - 1)) == 0)) {
-		printf("Assertion failure: Modulus wasn't power of two!\n");
+	// Half the bits rounded up
+	uint64_t right_side_bits = total_bits - left_side_bits;
+	uint64_t right_side_mask = (1ull << right_side_bits) - 1;
+	for(int i = 0; i < NUM_ROUNDS; i++)
+	{
+		// TODO: Ask authors what I should do in place of random_function() here:
+		key[i] = 42424242;
 	}
 
-	// printf("modulus: %d, multiplier: %d, addition: %d, returned: %d\n", modulus, multiplier, addition, ((val * multiplier) + addition) & (modulus - 1));
+	uint32_t state[2] = {
+		convert_uint(val >> right_side_bits),
+		convert_uint(val & right_side_mask)
+	};
 
-	return ((val * multiplier) + addition) & (modulus - 1);
+	for(int i = 0; i < NUM_ROUNDS; i++)
+	{
+		uint32_t hi;
+		uint32_t lo = mulhilo(M0, state[0], &hi);
+		lo = (lo << (right_side_bits - left_side_bits)) | state[1] >> left_side_bits;
+		state[0] = ((hi ^ key[i]) ^ state[1]) & left_side_mask;
+		state[1] = lo & right_side_mask;
+	}
+
+	// Combine the left and right sides together to get result
+	return convert_ulong(state[0]) << right_side_bits | convert_ulong(state[1]);
 }
 
 int2 get_pos(
@@ -93,7 +162,8 @@ int get_shuffled_index(
 
 	// This loop is guaranteed to terminate if i < num_pixels
 	do {
-		shuffled = lcg(num_pixels, shuffled);
+		// shuffled = lcg(num_pixels, shuffled);
+		shuffled = philox(num_pixels, shuffled);
 	} while (shuffled >= num_pixels);
 
 	return shuffled;
