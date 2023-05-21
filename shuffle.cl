@@ -97,7 +97,7 @@ int get_shuffled_index(
 	return shuffled;
 }
 
-kernel void grayscale(
+kernel void shuffle_(
 	read_only image2d_t src,
 	write_only image2d_t dest
 ) {
