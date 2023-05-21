@@ -1,50 +1,48 @@
-#include <include/Random123/philox.h>
+#define uint64_t ulong
 
-// #define uint64_t ulong
+uint64_t round_up_power_2(
+	uint64_t a
+) {
+	if(a & (a - 1))
+	{
+		uint64_t i;
+		for(i = 0; a > 1; i++)
+		{
+			a >>= 1ull;
+		}
 
-// uint64_t round_up_power_2(
-// 	uint64_t a
-// ) {
-// 	if(a & (a - 1))
-// 	{
-// 		uint64_t i;
-// 		for(i = 0; a > 1; i++)
-// 		{
-// 			a >>= 1ull;
-// 		}
+		return 1ull << (i + 1ull);
+	}
 
-// 		return 1ull << (i + 1ull);
-// 	}
+	return a;
+}
 
-// 	return a;
-// }
+uint64_t lcg(
+	uint64_t capacity,
+	uint64_t val
+) {
+	uint64_t modulus = round_up_power_2(capacity);
 
-// uint64_t lcg(
-// 	uint64_t capacity,
-// 	uint64_t val
-// ) {
-// 	uint64_t modulus = round_up_power_2(capacity);
+	// TODO: Ask authors what I should do in place of random_function() here:
+	uint64_t multiplier_rand = 42424242;
 
-// 	// TODO: Ask authors what I should do in place of random_function() here:
-// 	uint64_t multiplier_rand = 42424242;
+	// Must be odd so it is coprime to modulus
+	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
 
-// 	// Must be odd so it is coprime to modulus
-// 	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
+	// TODO: Ask authors what I should do in place of random_function() here:
+	uint64_t addition_rand = 69696969;
 
-// 	// TODO: Ask authors what I should do in place of random_function() here:
-// 	uint64_t addition_rand = 69696969;
+	uint64_t addition = addition_rand % modulus;
 
-// 	uint64_t addition = addition_rand % modulus;
+	// Modulus must be power of two
+	// assert((modulus & (modulus - 1)) == 0);
+	// TODO: Replace with proper assert() somehow
+	if (!((modulus & (modulus - 1)) == 0)) {
+		printf("Assertion failure: Modulus wasn't power of two!\n");
+	}
 
-// 	// Modulus must be power of two
-// 	// assert((modulus & (modulus - 1)) == 0);
-// 	// TODO: Replace with proper assert() somehow
-// 	if (!((modulus & (modulus - 1)) == 0)) {
-// 		printf("Assertion failure: Modulus wasn't power of two!\n");
-// 	}
-
-// 	return ((val * multiplier) + addition) & (modulus - 1);
-// }
+	return ((val * multiplier) + addition) & (modulus - 1);
+}
 
 void swap(
 	read_only image2d_t src,
@@ -53,6 +51,8 @@ void swap(
 	int shuffled_i1,
 	int shuffled_i2
 ) {
+	// TODO: Move code to new get_pos()
+
 	int x1 = shuffled_i1 % width;
 	int y1 = (int)(shuffled_i1 / width);
     int2 pos1 = (int2)(x1, y1);
@@ -60,6 +60,9 @@ void swap(
 	int x2 = shuffled_i2 % width;
 	int y2 = (int)(shuffled_i2 / width);
     int2 pos2 = (int2)(x2, y2);
+
+	// printf("shuffled_i1: %d, x1: %d, y1: %d\n", shuffled_i1, x1, y1);
+	// printf("shuffled_i2: %d, x2: %d, y2: %d\n", shuffled_i2, x2, y2);
 
 	// CLK_NORMALIZED_COORDS_FALSE means the x and y coordinates won't be normalized to between 0 and 1
 	// CLK_ADDRESS_CLAMP_TO_EDGE means the x and y coordinates are clamped to be within the image's size
@@ -72,6 +75,12 @@ void swap(
     uint4 pix1 = read_imageui(src, sampler, pos1);
 
     uint4 pix2 = read_imageui(src, sampler, pos2);
+
+	// printf(
+	// 	"pix1: [%d,%d,%d,%d], pix2: [%d,%d,%d,%d]\n",
+	// 	pix1.x, pix1.y, pix1.z, pix1.w,
+	// 	pix2.x, pix2.y, pix2.z, pix2.w
+	// );
 
     write_imageui(dest, pos1, pix2);
 
@@ -89,25 +98,13 @@ int get_shuffled_index(
 	}
 	int shuffled = i;
 
-	philox2x32_ctr_t c={{}};
-	philox2x32_ukey_t uk={{}};
-
-	// Seed
-	uk.v[0] = 0;
-
-	philox2x32_key_t k = philox2x32keyinit(uk);
-
 	// This loop is guaranteed to terminate if i < num_pixels
 	do {
 		// shuffled = philox( shuffled );
 
-		c.v[0] = shuffled;
-		philox2x32_ctr_t r = philox2x32(c, k);
-		shuffled = r.v[0];
-		// 0x80000000 is 2147483648, compensating for philox2x32 returning signed ints
-		// ulong foo = ((ulong)shuffled) + ((ulong)0x80000000);
-		// ulong foo = convert_ulong(shuffled);
-		// printf("shuffled: %d, shuffled + half: %d, foo: %d\n", shuffled, shuffled + 0x80000000, foo);
+		shuffled = lcg(num_pixels, shuffled);
+
+		// printf("shuffled: %d\n", shuffled);
 	} while (shuffled >= num_pixels);
 
 	// printf("shuffled: %d\n", shuffled);
@@ -139,18 +136,6 @@ kernel void grayscale(
 
 	// printf("x: %d, y: %d", x, y);
 
-	philox2x32_ctr_t c={{}};
-	philox2x32_ukey_t uk={{}};
-
-	// Seed
-	uk.v[0] = 0;
-
-	philox2x32_key_t k = philox2x32keyinit(uk);
-
-    // c.v[0] = x;
-    // c.v[1] = y;
-    c.v[0] = gid;
-	philox2x32_ctr_t r = philox2x32(c, k);
 	// printf("i1: %d, i2: %d, r.v[0]: %d\n", i1, i2, r.v[0]);
 
 	// uint R = r.v[0] & 255;
@@ -163,7 +148,9 @@ kernel void grayscale(
 	// uint A = 255;
 	// uint4 pix = (uint4)(R, G, B, A);
 
-	int shuffled_i1 = get_shuffled_index(i1, pixel_count);
-	int shuffled_i2 = get_shuffled_index(i2, pixel_count);
+	// int shuffled_i1 = get_shuffled_index(i1, pixel_count);
+	// int shuffled_i2 = get_shuffled_index(i2, pixel_count);
+	int shuffled_i1 = i1;
+	int shuffled_i2 = i2;
 	swap(src, dest, width, shuffled_i1, shuffled_i2);
 }
