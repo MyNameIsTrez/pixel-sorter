@@ -36,6 +36,7 @@ def main():
     # Build destination OpenCL Image
     fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.UNSIGNED_INT8)
     dest_buf = cl.Image(ctx, cl.mem_flags.WRITE_ONLY, fmt, shape=(w, h))
+    cl.enqueue_copy(queue, dest_buf, src, origin=(0, 0), region=(w, h))
 
     # Execute OpenCL function
     assert w % 2 == 0, "This program currently doesn't support images with an odd width"

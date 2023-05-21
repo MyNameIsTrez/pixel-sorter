@@ -169,6 +169,15 @@ int get_shuffled_index(
 	return shuffled;
 }
 
+bool should_swap(
+	read_only image2d_t src,
+	int shuffled_i1,
+	int shuffled_i2
+
+) {
+	return false;
+}
+
 kernel void shuffle_(
 	read_only image2d_t src,
 	write_only image2d_t dest
@@ -185,5 +194,8 @@ kernel void shuffle_(
 
 	int shuffled_i1 = get_shuffled_index(i1, pixel_count);
 	int shuffled_i2 = get_shuffled_index(i2, pixel_count);
-	swap(src, dest, width, shuffled_i1, shuffled_i2);
+
+	if (should_swap(src, shuffled_i1, shuffled_i2)) {
+		swap(src, dest, width, shuffled_i1, shuffled_i2);
+	}
 }
