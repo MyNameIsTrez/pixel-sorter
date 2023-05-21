@@ -1,9 +1,3 @@
-# Source:
-# https://gist.github.com/pointhi/801a3c19498728801e909b623c1e15a1
-
-# This script is a simple test to do image operations on pyopencl in combination with PIL
-# based on the code of: https://gist.github.com/likr/3735779
-
 import os
 from pathlib import Path
 
