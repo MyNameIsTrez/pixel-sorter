@@ -5,8 +5,9 @@ import numpy
 import pyopencl as cl
 from PIL import Image
 
-filename = "elephant.png"
-# filename = "small.png"
+# filename = "all_colors.png"
+# filename = "elephant.png"
+filename = "small.png"
 # filename = "tiny.png"
 
 
@@ -27,7 +28,7 @@ def main():
     # Get size of source image (note height is stored at index 0)
     h = src.shape[0]
     w = src.shape[1]
-    print(f"width: {w}, height: {h}")
+    # print(f"width: {w}, height: {h}")
 
     # Build a 2D OpenCL Image from the numpy array
     src_buf = cl.image_from_array(ctx, src, 4)
