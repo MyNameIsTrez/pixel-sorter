@@ -1,8 +1,9 @@
 import numpy as np
 from PIL import Image
 
-filename = "elephant.png"
-# filename = "small.png"
+# filename = "all_colors.png"
+# filename = "elephant.png"
+filename = "small.png"
 # filename = "tiny.png"
 
 
@@ -21,9 +22,17 @@ def main():
     output_colors, output_counts = get_colors_and_counts(f"output/{filename}")
 
     colors_equal = np.array_equal(input_colors, output_colors)
-    input_counts_equal = np.array_equal(input_counts, output_counts)
-    print(colors_equal)
-    print(input_counts_equal)
+    counts_equal = np.array_equal(input_counts, output_counts)
+
+    assert (
+        colors_equal
+    ), "❌ The set of colors in the output isn't identical to the set of colors in the input!"
+
+    assert (
+        counts_equal
+    ), "❌ The counts of colors in the output isn't identical to the counts of colors in the input!"
+
+    print("🎉 Images have identical color occurrences!")
 
 
 if __name__ == "__main__":
