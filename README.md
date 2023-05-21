@@ -11,6 +11,6 @@ It does this by repeatedly attempting to swap two random pixels, only doing so i
 3. Install requirements with `pip install -r requirements.txt`
 4. Run it with `py noise.py`
 
-The result is put in the `output/` directory.
+The resulting `.png` is put in the `output/` directory.
 
 Modify the `filename` variable at the top of `noise.py` in order to have it load a different `.png` from the `input/` directory.
