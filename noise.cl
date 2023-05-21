@@ -44,6 +44,15 @@ uint64_t lcg(
 	return ((val * multiplier) + addition) & (modulus - 1);
 }
 
+int2 get_pos(
+	int shuffled_i,
+	int width
+) {
+	int x = shuffled_i % width;
+	int y = (int)(shuffled_i / width);
+    return (int2)(x, y);
+}
+
 void swap(
 	read_only image2d_t src,
     write_only image2d_t dest,
@@ -51,15 +60,8 @@ void swap(
 	int shuffled_i1,
 	int shuffled_i2
 ) {
-	// TODO: Move code to new get_pos()
-
-	int x1 = shuffled_i1 % width;
-	int y1 = (int)(shuffled_i1 / width);
-    int2 pos1 = (int2)(x1, y1);
-
-	int x2 = shuffled_i2 % width;
-	int y2 = (int)(shuffled_i2 / width);
-    int2 pos2 = (int2)(x2, y2);
+    int2 pos1 = get_pos(shuffled_i1, width);
+    int2 pos2 = get_pos(shuffled_i2, width);
 
 	// printf("shuffled_i1: %d, x1: %d, y1: %d\n", shuffled_i1, x1, y1);
 	// printf("shuffled_i2: %d, x2: %d, y2: %d\n", shuffled_i2, x2, y2);
