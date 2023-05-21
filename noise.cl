@@ -46,6 +46,37 @@
 // 	return ((val * multiplier) + addition) & (modulus - 1);
 // }
 
+void swap(
+	read_only image2d_t src,
+    write_only image2d_t dest,
+	int width,
+	int shuffled_i1,
+	int shuffled_i2
+) {
+	int x1 = shuffled_i1 % width;
+	int y1 = (int)(shuffled_i1 / width);
+    int2 pos1 = (int2)(x1, y1);
+
+	int x2 = shuffled_i2 % width;
+	int y2 = (int)(shuffled_i2 / width);
+    int2 pos2 = (int2)(x2, y2);
+
+	// CLK_NORMALIZED_COORDS_FALSE means the x and y coordinates won't be normalized to between 0 and 1
+	// CLK_ADDRESS_CLAMP_TO_EDGE means the x and y coordinates are clamped to be within the image's size
+	// CLK_FILTER_NEAREST means not having any pixel neighbor interpolation occur
+	// Sources:
+	// https://man.opencl.org/sampler_t.html
+	// https://registry.khronos.org/OpenCL/specs/opencl-1.1.pdf
+    sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+
+    uint4 pix1 = read_imageui(src, sampler, pos1);
+
+    uint4 pix2 = read_imageui(src, sampler, pos2);
+
+    write_imageui(dest, pos1, pix2);
+
+    write_imageui(dest, pos2, pix1);
+}
 kernel void grayscale(
     read_only image2d_t src,
     write_only image2d_t dest
