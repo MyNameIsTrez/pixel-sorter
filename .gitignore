@@ -1,6 +1,7 @@
 *
 !*/
 !input/**/*
+!media/**/*
 !**/.placeholder
 !.gitignore
 !**/*.cl
