@@ -63,8 +63,8 @@ void swap(
     int2 pos1 = get_pos(shuffled_i1, width);
     int2 pos2 = get_pos(shuffled_i2, width);
 
-	// printf("shuffled_i1: %d, x1: %d, y1: %d\n", shuffled_i1, x1, y1);
-	// printf("shuffled_i2: %d, x2: %d, y2: %d\n", shuffled_i2, x2, y2);
+	// printf("shuffled_i1: %d, x1: %d, y1: %d\n", shuffled_i1, pos1.x, pos1.y);
+	// printf("shuffled_i2: %d, x2: %d, y2: %d\n", shuffled_i2, pos2.x, pos2.y);
 
 	// CLK_NORMALIZED_COORDS_FALSE means the x and y coordinates won't be normalized to between 0 and 1
 	// CLK_ADDRESS_CLAMP_TO_EDGE means the x and y coordinates are clamped to be within the image's size
@@ -150,9 +150,9 @@ kernel void grayscale(
 	// uint A = 255;
 	// uint4 pix = (uint4)(R, G, B, A);
 
-	// int shuffled_i1 = get_shuffled_index(i1, pixel_count);
-	// int shuffled_i2 = get_shuffled_index(i2, pixel_count);
-	int shuffled_i1 = i1;
-	int shuffled_i2 = i2;
+	int shuffled_i1 = get_shuffled_index(i1, pixel_count);
+	int shuffled_i2 = get_shuffled_index(i2, pixel_count);
+	// int shuffled_i1 = i1;
+	// int shuffled_i2 = i2;
 	swap(src, dest, width, shuffled_i1, shuffled_i2);
 }
