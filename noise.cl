@@ -50,21 +50,18 @@ int2 get_pos(
 ) {
 	int x = shuffled_i % width;
 	int y = (int)(shuffled_i / width);
-    return (int2)(x, y);
+	return (int2)(x, y);
 }
 
 void swap(
 	read_only image2d_t src,
-    write_only image2d_t dest,
+	write_only image2d_t dest,
 	int width,
 	int shuffled_i1,
 	int shuffled_i2
 ) {
-    int2 pos1 = get_pos(shuffled_i1, width);
-    int2 pos2 = get_pos(shuffled_i2, width);
-
-	// printf("shuffled_i1: %d, x1: %d, y1: %d\n", shuffled_i1, pos1.x, pos1.y);
-	// printf("shuffled_i2: %d, x2: %d, y2: %d\n", shuffled_i2, pos2.x, pos2.y);
+	int2 pos1 = get_pos(shuffled_i1, width);
+	int2 pos2 = get_pos(shuffled_i2, width);
 
 	// CLK_NORMALIZED_COORDS_FALSE means the x and y coordinates won't be normalized to between 0 and 1
 	// CLK_ADDRESS_CLAMP_TO_EDGE means the x and y coordinates are clamped to be within the image's size
@@ -72,21 +69,13 @@ void swap(
 	// Sources:
 	// https://man.opencl.org/sampler_t.html
 	// https://registry.khronos.org/OpenCL/specs/opencl-1.1.pdf
-    sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+	sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
-    uint4 pix1 = read_imageui(src, sampler, pos1);
+	uint4 pix1 = read_imageui(src, sampler, pos1);
+	uint4 pix2 = read_imageui(src, sampler, pos2);
 
-    uint4 pix2 = read_imageui(src, sampler, pos2);
-
-	// printf(
-	// 	"pix1: [%d,%d,%d,%d], pix2: [%d,%d,%d,%d]\n",
-	// 	pix1.x, pix1.y, pix1.z, pix1.w,
-	// 	pix2.x, pix2.y, pix2.z, pix2.w
-	// );
-
-    write_imageui(dest, pos1, pix2);
-
-    write_imageui(dest, pos2, pix1);
+	write_imageui(dest, pos1, pix2);
+	write_imageui(dest, pos2, pix1);
 }
 
 int get_shuffled_index(
@@ -102,21 +91,15 @@ int get_shuffled_index(
 
 	// This loop is guaranteed to terminate if i < num_pixels
 	do {
-		// shuffled = philox( shuffled );
-
 		shuffled = lcg(num_pixels, shuffled);
-
-		// printf("shuffled: %d\n", shuffled);
 	} while (shuffled >= num_pixels);
-
-	// printf("shuffled: %d\n", shuffled);
 
 	return shuffled;
 }
 
 kernel void grayscale(
-    read_only image2d_t src,
-    write_only image2d_t dest
+	read_only image2d_t src,
+	write_only image2d_t dest
 ) {
 	// TODO: Test if using get_image_dim() instead of these two calls is faster
 	int width = get_image_width(src);
@@ -124,35 +107,11 @@ kernel void grayscale(
 
 	int pixel_count = width * height;
 
-	// lcg(pixel_count, 0);
-// 	printf("width: %d, height: %d, pixel_count: %d, lcg(0): %d\n", width, height, pixel_count, lcg(pixel_count, 0));
-// }
-
 	int gid = get_global_id(0);
 	int i1 = gid * 2;
 	int i2 = i1 + 1;
 
-	// int x = get_global_id(0);
-	// int y = get_global_id(1);
-	// int i = y * width + x;
-
-	// printf("x: %d, y: %d", x, y);
-
-	// printf("i1: %d, i2: %d, r.v[0]: %d\n", i1, i2, r.v[0]);
-
-	// uint R = r.v[0] & 255;
-	// uint G = r.v[0] & 255;
-	// uint B = r.v[0] & 255;
-	// uint v = lcg(pixel_count, i) & 255;
-	// uint R = v;
-	// uint G = v;
-	// uint B = v;
-	// uint A = 255;
-	// uint4 pix = (uint4)(R, G, B, A);
-
 	int shuffled_i1 = get_shuffled_index(i1, pixel_count);
 	int shuffled_i2 = get_shuffled_index(i2, pixel_count);
-	// int shuffled_i1 = i1;
-	// int shuffled_i2 = i2;
 	swap(src, dest, width, shuffled_i1, shuffled_i2);
 }
