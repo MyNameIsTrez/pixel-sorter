@@ -3,7 +3,6 @@ import os
 import time
 from pathlib import Path
 
-import ffmpeg
 import numpy as np
 import pyopencl as cl
 from PIL import Image
@@ -118,47 +117,6 @@ def add_parser_arguments(parser):
         type=int,
         default=0,
         help="The number of leading zeros on saved images; this has no effect if the -n switch isn't passed!",
-    )
-    parser.add_argument(
-        "-f",
-        "--ffmpeg",
-        action="store_true",
-        help="Creates an mp4 in the output directory from the generated frames; this has no effect if the -n switch isn't passed!",
-    )
-    parser.add_argument(
-        "-fr",
-        "--ffmpeg-framerate",
-        type=int,
-        default=30,
-        help="The frames per second to use for the output video; this has no effect if the -f switch isn't passed!",
-    )
-    parser.add_argument(
-        "-fw",
-        "--ffmpeg-width",
-        type=int,
-        default=64,
-        help="The width to use for the output video; this has no effect if the -f switch isn't passed!",
-    )
-    parser.add_argument(
-        "-fh",
-        "--ffmpeg-height",
-        type=int,
-        default=64,
-        help="The height to use for the output video; this has no effect if the -f switch isn't passed!",
-    )
-    parser.add_argument(
-        "-ft",
-        "--ffmpeg-filetype",
-        type=str,
-        default="webm",
-        help="Whether to let ffmpeg output a webm or mp4 video; this has no effect if the -f switch isn't passed!",
-    )
-    parser.add_argument(
-        "-fc",
-        "--ffmpeg-crf",
-        type=int,
-        default=0,
-        help="The CRF (quality) of the output video; this has no effect if the -f switch isn't passed!",
     )
 
 
@@ -296,37 +254,6 @@ def main():
             args.iterations_in_kernel_per_call,
             start_time,
         )
-
-        if args.ffmpeg:
-            # ffmpeg -i C:/Users/welfj/Desktop/input.mp4 -crf 40 -c:v libx264 -pix_fmt yuv420p C:/Users/welfj/Desktop/output.mp4
-            a = ffmpeg.input(
-                f"{args.output_image_path.parent}/{args.output_image_path.stem}_%0{args.saved_image_leading_zero_count}d.png",
-                framerate=args.ffmpeg_framerate,
-            )
-
-            # TODO: Do I want force_original_aspect_ratio="increase" or another value?
-            a = a.filter(
-                "scale",
-                size=f"{args.ffmpeg_width}:{args.ffmpeg_height}",
-                force_original_aspect_ratio="increase",
-            )
-
-            if args.ffmpeg_filetype == "mp4":
-                a = a.output(
-                    str(args.output_image_path.parent / "output.mp4"),
-                    vcodec="libx264",
-                    pix_fmt="yuv420p",
-                    crf=args.ffmpeg_crf,
-                )
-            elif args.ffmpeg_filetype == "webm":
-                a = a.output(
-                    str(args.output_image_path.parent / "output.webm"),
-                    crf=args.ffmpeg_crf,
-                )
-
-            # TODO: If the user enters "N" when ffmpeg asks to overwrite, this crashes.
-            # What to do in this case?
-            a = a.run()
 
 
 if __name__ == "__main__":
