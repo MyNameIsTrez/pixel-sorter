@@ -4,12 +4,12 @@
 #ifndef MAKE_VSCODE_HIGHLIGHTER_HAPPY
 #define ITERATIONS_IN_KERNEL_PER_CALL 0
 #define KERNEL_RADIUS 0
-#define MODE 0
+#define SHUFFLE_MODE 0
 #endif
 
 #define NUM_PHILOX_ROUNDS 24
 
-enum MODES {
+enum SHUFFLE_MODES {
 	LCG,
 	PHILOX,
 };
@@ -214,7 +214,7 @@ int get_shuffled_index(
 
 	// This loop is guaranteed to terminate if i < num_pixels
 	do {
-		if (MODE == LCG) {
+		if (SHUFFLE_MODE == LCG) {
 			shuffled = lcg(num_pixels, shuffled, rand1, rand2);
 		} else {
 			shuffled = philox(num_pixels, shuffled, rand_state);
@@ -296,6 +296,7 @@ int get_score(
 
 			uint4 neighbor_pixel = get_pixel(src, neighbor);
 
+			// TODO: Maybe make switching between these two an argparse thing?
 			// score += get_neighbor_score_distanceless(src, pixel, neighbor_pixel);
 			score += get_neighbor_score_with_distance(src, pixel, neighbor_pixel, dx, dy);
 

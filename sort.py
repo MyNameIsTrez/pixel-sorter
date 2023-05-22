@@ -24,15 +24,13 @@ def save_result(src, queue, dest_buf, w, h, output_image_path):
     dest_img.save(output_image_path)
 
 
-def get_opencl_code(iterations_in_kernel_per_call):
+def get_opencl_code(iterations_in_kernel_per_call, kernel_radius, shuffle_mode):
     opencl_code = Path("sort.cl").read_text()
 
     defines = {
         "ITERATIONS_IN_KERNEL_PER_CALL": iterations_in_kernel_per_call,
-        # TODO: Make this an argparse thing
-        "KERNEL_RADIUS": "10",
-        # TODO: Make this an argparse thing
-        "MODE": "LCG",
+        "KERNEL_RADIUS": kernel_radius,
+        "SHUFFLE_MODE": shuffle_mode,
     }
 
     defines_str = "\n".join(
@@ -70,12 +68,28 @@ def add_parser_arguments(parser):
         default=1,
         help="How often the current output image gets saved",
     )
+    parser.add_argument(
+        "-k",
+        "--kernel-radius",
+        type=int,
+        default=10,
+        help="The radius of neighbors that get compared against the current pixel's color",
+    )
+    parser.add_argument(
+        "-m",
+        "--shuffle-mode",
+        type=str,
+        default="LCG",
+        help="The shuffle mode: LCG is faster, while PHILOX is higher quality",
+    )
 
 
 def main():
     start_time = time.time()
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     add_parser_arguments(parser)
     args = parser.parse_args()
 
@@ -87,9 +101,12 @@ def main():
 
     # TODO: Try to find useful optimization flags
     # Load and build OpenCL function
-    prg = cl.Program(ctx, get_opencl_code(args.iterations_in_kernel_per_call)).build(
-        options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1"
-    )
+    prg = cl.Program(
+        ctx,
+        get_opencl_code(
+            args.iterations_in_kernel_per_call, args.kernel_radius, args.shuffle_mode
+        ),
+    ).build(options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1")
 
     # Load and convert source image
     # This example code only works with RGBA images
@@ -147,7 +164,7 @@ def main():
 
                 last_printed_time = time.time()
 
-            # TODO: Add wraparound code
+            # Numpy handles unsigned wraparound for us
             rand1 = np.uint32(rand1 + 1)
 
             # The .wait() is crucial!
