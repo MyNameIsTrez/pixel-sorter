@@ -46,9 +46,32 @@ def main():
     ctx = cl.create_some_context()
     queue = cl.CommandQueue(ctx)
 
+    opencl_code = Path("shuffle.cl").read_text()
+
+    # You can set ITERATIONS_IN_KERNEL_PER_CALL higher than 1 in some cases
+    # which can speed up the program by 3 times,
+    # but make sure to run compare_color_occurrences.py
+    # if you do set it higher, since it can mess some images up!
+    defines = {
+        "ITERATIONS_IN_KERNEL_PER_CALL": "1",
+        "KERNEL_RADIUS": "10",
+        "MODE": "LCG",
+    }
+
+    defines_str = "\n".join(
+        (
+            f"#define {define_name} {define_value}"
+            for define_name, define_value in defines.items()
+        )
+    )
+
+    opencl_code = defines_str + "\n\n" + opencl_code
+
     # TODO: Try to find useful optimization flags
     # Load and build OpenCL function
-    prg = cl.Program(ctx, Path("shuffle.cl").read_text()).build()
+    prg = cl.Program(ctx, opencl_code).build(
+        options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1"
+    )
 
     # Load and convert source image
     # This example code only works with RGBA images

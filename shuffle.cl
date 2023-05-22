@@ -1,10 +1,14 @@
-#define ITERATIONS_IN_KERNEL_PER_CALL 1
-#define KERNEL_RADIUS 10
-#define MODE LCG
+// Solely here to make my VS Code highlighter
+// not whine about the real define values not being in this file
+#ifndef MAKE_VSCODE_HIGHLIGHTER_HAPPY
+#define ITERATIONS_IN_KERNEL_PER_CALL 0
+#define KERNEL_RADIUS 0
+#define MODE 0
+#endif
 
 #define NUM_PHILOX_ROUNDS 24
 
-enum MODE {
+enum MODES {
 	LCG,
 	PHILOX,
 };
