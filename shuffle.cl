@@ -1,16 +1,16 @@
-#define ITERATION_COUNT 1e6
+#define ITERATION_COUNT 1e4
 #define KERNEL_RADIUS 1
-#define MODE LCG
+#define MODE PHILOX
 
 #define NUM_PHILOX_ROUNDS 24
-
-#define u32 uint
-#define u64 ulong
 
 enum MODE {
 	LCG,
 	PHILOX,
 };
+
+typedef uint u32;
+typedef ulong u64;
 
 u64 round_up_to_power_of_2(
 	u64 a
@@ -54,6 +54,20 @@ u64 lcg(
 	return ((val * multiplier) + addition) & (modulus - 1);
 }
 
+// Source: https://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
+u32 rand(
+	uint2 *state
+) {
+    enum { A=4294883355U };
+    u32 x=(*state).x, c=(*state).y;  // Unpack the state
+    u32 res=x^c;                     // Calculate the result
+    u32 hi=mul_hi(x,A);              // Step the RNG
+    x=x*A+c;
+    c=hi+(x<c);
+    *state=(uint2)(x,c);               // Pack the state back up
+    return res;                       // Return the next result
+}
+
 u32 mulhilo(
 	u64 a,
 	u32 b,
@@ -83,7 +97,7 @@ u64 get_cipher_bits(u64 capacity)
 u64 philox(
 	u64 capacity,
 	u64 val,
-	u32 rand
+	uint2 *rand_state
 ) {
 	u64 M0 = 0xD2B74407B1CE6E93;
     u32 key[NUM_PHILOX_ROUNDS];
@@ -100,7 +114,7 @@ u64 philox(
 
 	for(int i = 0; i < NUM_PHILOX_ROUNDS; i++)
 	{
-		key[i] = rand;
+		key[i] = rand(rand_state);
 	}
 
 	u32 state[2] = {
@@ -170,7 +184,8 @@ int get_shuffled_index(
 	int i,
 	int num_pixels,
 	u32 rand1,
-	u32 rand2
+	u32 rand2,
+	uint2 *rand_state
 ) {
 	// assert(i < num_pixels);
 	// TODO: Replace with proper assert() somehow
@@ -184,7 +199,7 @@ int get_shuffled_index(
 		if (MODE == LCG) {
 			shuffled = lcg(num_pixels, shuffled, rand1, rand2);
 		} else {
-			shuffled = philox(num_pixels, shuffled, rand1);
+			shuffled = philox(num_pixels, shuffled, rand_state);
 		}
 	} while (shuffled >= num_pixels);
 
@@ -310,24 +325,28 @@ kernel void shuffle_(
 ) {
 	// TODO: Move as much as possible out of this loop!
 
+	// TODO: Test if using get_image_dim() instead of these two calls is faster
+	int width = get_image_width(src);
+	int height = get_image_height(src);
+
+	int pixel_count = width * height;
+
+	int gid = get_global_id(0);
+	int i1 = gid * 2;
+	int i2 = i1 + 1;
+
+	// TODO: Maybe base this off of the gid?
+	uint2 rand_state = (uint2)(rand1, rand2);
+
+	// double taken = 0;
+	// double not_taken = 0;
+
 	for (int iteration = 0; iteration < ITERATION_COUNT; iteration++) {
 		// TODO: Is this defined to wrap around in OpenCL?
-		// TODO: PHILOX its results are garbage; need to re-add rand()
-		// from my Git history if I want to keep using PHILOX
 		rand1++;
 
-		// TODO: Test if using get_image_dim() instead of these two calls is faster
-		int width = get_image_width(src);
-		int height = get_image_height(src);
-
-		int pixel_count = width * height;
-
-		int gid = get_global_id(0);
-		int i1 = gid * 2;
-		int i2 = i1 + 1;
-
-		int shuffled_i1 = get_shuffled_index(i1, pixel_count, rand1, rand2);
-		int shuffled_i2 = get_shuffled_index(i2, pixel_count, rand1, rand2);
+		int shuffled_i1 = get_shuffled_index(i1, pixel_count, rand1, rand2, &rand_state);
+		int shuffled_i2 = get_shuffled_index(i2, pixel_count, rand1, rand2, &rand_state);
 
 		int2 pos1 = get_pos(shuffled_i1, width);
 		int2 pos2 = get_pos(shuffled_i2, width);
@@ -337,13 +356,18 @@ kernel void shuffle_(
 		// TODO: Stop unnecessarily passing gid to a bunch of functions!
 		if (should_swap(src, width, height, pos1, pos2, gid)) {
 			swap(src, dest, pos1, pos2);
+
+			// Copy the dst buffer to the src buffer
+			set_pixel(src, pos1, get_pixel(dest, pos1));
+			set_pixel(src, pos2, get_pixel(dest, pos2));
+
+			// taken++;
 		}
 
-		// TODO: A fence may be good enough and faster than a barrier?
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-		// Copy the dst buffer to the src buffer
-		set_pixel(src, pos1, get_pixel(dest, pos1));
-		set_pixel(src, pos2, get_pixel(dest, pos2));
+		// not_taken++;
 	}
+
+	// printf("Percentage of swaps taken: %f%\n", taken / ((not_taken == 0) ? 1 : not_taken) * 100);
 }
