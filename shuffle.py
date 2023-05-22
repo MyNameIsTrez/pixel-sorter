@@ -7,6 +7,7 @@ import pyopencl as cl
 from PIL import Image
 
 # filename = "all_colors.png"
+# filename = "big_palette.png"
 # filename = "elephant.png"
 # filename = "grid.png"
 filename = "palette.png"
