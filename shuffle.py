@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 from pathlib import Path
@@ -6,42 +7,24 @@ import numpy as np
 import pyopencl as cl
 from PIL import Image
 
-# TODO: Let CLI ask for input and output filepaths instead
-# filename = "all_colors.png"
-filename = "big_palette.png"
-# filename = "elephant.png"
-# filename = "grid.png"
-# filename = "palette.png"
-# filename = "small.png"
-# filename = "tiny.png"
 
-# TODO: REMOVE THESE FROM HERE
-# You can set iterations_in_kernel_per_call higher than 1 in some cases
-# which can speed up the program by 3 times,
-# but make sure to run compare_color_occurrences.py
-# if you do set it higher, since it can mess some images up!
-iterations_in_kernel_per_call = 1
-
-seconds_between_status_updates = 10
-
-
-def print_status(python_iteration, start_time):
+def print_status(python_iteration, iterations_in_kernel_per_call, start_time):
     print(
         f"Iteration {(python_iteration + 1) * iterations_in_kernel_per_call:.0f} ({python_iteration + 1:.0f} * {iterations_in_kernel_per_call:.0f}) at {time.time() - start_time:.1f} seconds"
     )
 
 
-def save_result(src, queue, dest_buf, w, h):
+def save_result(src, queue, dest_buf, w, h, output_image_path):
     # Copy result back to host
     dest = np.empty_like(src)
     cl.enqueue_copy(queue, dest, dest_buf, origin=(0, 0), region=(w, h))
 
     # Convert image and save it
     dest_img = Image.fromarray(dest)
-    dest_img.save(f"output/{filename}")
+    dest_img.save(output_image_path)
 
 
-def get_opencl_code():
+def get_opencl_code(iterations_in_kernel_per_call):
     opencl_code = Path("shuffle.cl").read_text()
 
     defines = {
@@ -60,8 +43,39 @@ def get_opencl_code():
     return defines_str + "\n\n" + opencl_code
 
 
+def add_parser_arguments(parser):
+    parser.add_argument(
+        "input_image_path",
+        type=Path,
+        help="The path to an input image to sort",
+    )
+    parser.add_argument(
+        "output_image_path",
+        type=Path,
+        help="The path where to save the output image to",
+    )
+    parser.add_argument(
+        "-it",
+        "--iterations-in-kernel-per-call",
+        type=int,
+        default=1,
+        help="Setting this higher than 1 can massively speed up the program, but it also messes up on some input images! If you do set it higher, verify the output image with compare_color_occurrences.py",
+    )
+    parser.add_argument(
+        "-s",
+        "--seconds-between-saves",
+        type=int,
+        default=1,
+        help="How often the current output image gets saved",
+    )
+
+
 def main():
     start_time = time.time()
+
+    parser = argparse.ArgumentParser()
+    add_parser_arguments(parser)
+    args = parser.parse_args()
 
     # Initialize OpenCL
     os.environ["PYOPENCL_CTX"] = "0"
@@ -71,13 +85,13 @@ def main():
 
     # TODO: Try to find useful optimization flags
     # Load and build OpenCL function
-    prg = cl.Program(ctx, get_opencl_code()).build(
+    prg = cl.Program(ctx, get_opencl_code(args.iterations_in_kernel_per_call)).build(
         options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1"
     )
 
     # Load and convert source image
     # This example code only works with RGBA images
-    src_img = Image.open(f"input/{filename}").convert("RGBA")
+    src_img = Image.open(args.input_image_path).convert("RGBA")
     src = np.array(src_img)
 
     # Get size of source image (note height is stored at index 0)
@@ -117,15 +131,17 @@ def main():
     # TODO: Fix wrong elephant color count with ITERATIONS_IN_KERNEL_PER_CALL 2
     # opencl_shuffle(queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2)
     # save_result(src, queue, dest_buf, w, h)
-    # print_status(python_iteration, start_time)
+    # print_status(python_iteration, args.iterations_in_kernel_per_call, start_time)
 
     try:
         while True:
             python_iteration += 1
 
-            if time.time() > last_printed_time + seconds_between_status_updates:
-                save_result(src, queue, dest_buf, w, h)
-                print_status(python_iteration, start_time)
+            if time.time() > last_printed_time + args.seconds_between_saves:
+                save_result(src, queue, dest_buf, w, h, args.output_image_path)
+                print_status(
+                    python_iteration, args.iterations_in_kernel_per_call, start_time
+                )
 
                 last_printed_time = time.time()
 
@@ -141,8 +157,8 @@ def main():
             ).wait()
 
     except KeyboardInterrupt:
-        save_result(src, queue, dest_buf, w, h)
-        print_status(python_iteration, start_time)
+        save_result(src, queue, dest_buf, w, h, args.output_image_path)
+        print_status(python_iteration, args.iterations_in_kernel_per_call, start_time)
 
 
 if __name__ == "__main__":
