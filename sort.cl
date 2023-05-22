@@ -354,7 +354,7 @@ bool should_swap(
 	return score_difference < 0;
 }
 
-kernel void shuffle_(
+kernel void sort(
 	read_only image2d_t src,
 	write_only image2d_t dest,
 	u32 rand1,

@@ -25,11 +25,13 @@ def save_result(src, queue, dest_buf, w, h, output_image_path):
 
 
 def get_opencl_code(iterations_in_kernel_per_call):
-    opencl_code = Path("shuffle.cl").read_text()
+    opencl_code = Path("sort.cl").read_text()
 
     defines = {
         "ITERATIONS_IN_KERNEL_PER_CALL": iterations_in_kernel_per_call,
+        # TODO: Make this an argparse thing
         "KERNEL_RADIUS": "10",
+        # TODO: Make this an argparse thing
         "MODE": "LCG",
     }
 
@@ -126,10 +128,10 @@ def main():
 
     last_printed_time = 0
 
-    opencl_shuffle = prg.shuffle_
+    opencl_sort = prg.sort
 
     # TODO: Fix wrong elephant color count with ITERATIONS_IN_KERNEL_PER_CALL 2
-    # opencl_shuffle(queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2)
+    # opencl_sort(queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2)
     # save_result(src, queue, dest_buf, w, h)
     # print_status(python_iteration, args.iterations_in_kernel_per_call, start_time)
 
@@ -152,7 +154,7 @@ def main():
             # The reason being that the OpenCL kernel call is async,
             # so without it you end up being unable to use Ctrl+C
             # to stop the program!
-            opencl_shuffle(
+            opencl_sort(
                 queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2
             ).wait()
 

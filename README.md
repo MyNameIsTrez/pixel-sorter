@@ -15,14 +15,4 @@ At the heart of the program lies my port of [CUDA-Shuffle](https://github.com/dj
 1. Clone this repository.
 2. `cd` into it.
 3. Install requirements with `pip install -r requirements.txt`
-4. Run it with `py shuffle.py`
-
-The resulting `.png` is put in the `output/` directory.
-
-Modify the `filename` variable at the top of `shuffle.py` in order to have it load a different `.png` from the `input/` directory.
-
-Modify the `ITERATION_COUNT` variable at the top of `shuffle.cl` in order to have the program sort for longer/shorter.
-
-Modify the `KERNEL_RADIUS` integer at the top of `shuffle.cl` to modify the neighbor radius that the center pixel's color is compared against.
-
-Modify the `MODE` variable at the top of `shuffle.cl` to either `LCG` or `PHILOX`, to switch between shuffling algorithms.
+4. Run `python sort.py -h` for the usage of the program
