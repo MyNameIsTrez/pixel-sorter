@@ -79,7 +79,7 @@ def add_parser_arguments(parser):
         "-m",
         "--shuffle-mode",
         type=str,
-        default="LCG",
+        default="PHILOX",
         help="The shuffle mode: LCG is faster, while PHILOX is higher quality",
     )
 
