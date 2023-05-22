@@ -1,6 +1,6 @@
-#define ITERATION_COUNT 1e4
+#define ITERATIONS_IN_KERNEL_PER_CALL 2
 #define KERNEL_RADIUS 1
-#define MODE PHILOX
+#define MODE LCG
 
 #define NUM_PHILOX_ROUNDS 24
 
@@ -58,14 +58,27 @@ u64 lcg(
 u32 rand(
 	uint2 *state
 ) {
-    enum { A=4294883355U };
-    u32 x=(*state).x, c=(*state).y;  // Unpack the state
-    u32 res=x^c;                     // Calculate the result
-    u32 hi=mul_hi(x,A);              // Step the RNG
+    enum {
+		A = 4294883355U
+	};
+
+	// Unpack the state
+    u32 x=(*state).x;
+	u32 c=(*state).y;
+
+	// Calculate the result
+    u32 res=x^c;
+
+	// Step the RNG
+	u32 hi=mul_hi(x,A);
     x=x*A+c;
     c=hi+(x<c);
-    *state=(uint2)(x,c);               // Pack the state back up
-    return res;                       // Return the next result
+
+	// Pack the state back up
+    *state=(uint2)(x,c);
+
+	// Return the next result
+    return res;
 }
 
 u32 mulhilo(
@@ -336,12 +349,13 @@ kernel void shuffle_(
 	int i2 = i1 + 1;
 
 	// TODO: Maybe base this off of the gid?
+	// TODO: Ask the author what I should do here instead, since this has wrong color counts
 	uint2 rand_state = (uint2)(rand1, rand2);
 
 	// double taken = 0;
 	// double not_taken = 0;
 
-	for (int iteration = 0; iteration < ITERATION_COUNT; iteration++) {
+	for (int iteration = 0; iteration < ITERATIONS_IN_KERNEL_PER_CALL; iteration++) {
 		// TODO: Is this defined to wrap around in OpenCL?
 		rand1++;
 
@@ -364,7 +378,9 @@ kernel void shuffle_(
 			// taken++;
 		}
 
-		barrier(CLK_LOCAL_MEM_FENCE);
+		// TODO: Not sure which of these two flags I should use,
+		// cause either seems to work.
+		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
 		// not_taken++;
 	}
