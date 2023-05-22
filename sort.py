@@ -14,14 +14,33 @@ def print_status(python_iteration, iterations_in_kernel_per_call, start_time):
     )
 
 
-def save_result(src, queue, dest_buf, w, h, output_image_path):
+def save_result(
+    src,
+    queue,
+    dest_buf,
+    w,
+    h,
+    output_image_path,
+    no_overwriting_output,
+    saved_results,
+    saved_image_leading_zero_count,
+):
     # Copy result back to host
     dest = np.empty_like(src)
     cl.enqueue_copy(queue, dest, dest_buf, origin=(0, 0), region=(w, h))
 
-    # Convert image and save it
+    # Convert the array to an image
     dest_img = Image.fromarray(dest)
-    dest_img.save(output_image_path)
+
+    # Save the image with/without overwriting the old image
+    if no_overwriting_output:
+        dest_img.save(
+            f"{output_image_path.with_suffix('')}_{saved_results:0{saved_image_leading_zero_count}d}.png"
+        )
+    else:
+        dest_img.save(f"{output_image_path.with_suffix('')}.png")
+
+    return saved_results + 1
 
 
 def get_opencl_code(iterations_in_kernel_per_call, kernel_radius, shuffle_mode):
@@ -81,6 +100,19 @@ def add_parser_arguments(parser):
         type=str,
         default="PHILOX",
         help="The shuffle mode: LCG is faster, while PHILOX is higher quality",
+    )
+    parser.add_argument(
+        "-n",
+        "--no-overwriting-output",
+        action="store_true",
+        help="Save all output images, instead of the default behavior of overwriting",
+    )
+    parser.add_argument(
+        "-z",
+        "--saved-image-leading-zero-count",
+        type=int,
+        default=0,
+        help="The number of leading zeros on saved images; this only has an effect if the -n switch is also passed",
     )
 
 
@@ -143,6 +175,8 @@ def main():
 
     python_iteration = 0
 
+    saved_results = 0
+
     last_printed_time = 0
 
     opencl_sort = prg.sort
@@ -157,7 +191,17 @@ def main():
             python_iteration += 1
 
             if time.time() > last_printed_time + args.seconds_between_saves:
-                save_result(src, queue, dest_buf, w, h, args.output_image_path)
+                saved_results = save_result(
+                    src,
+                    queue,
+                    dest_buf,
+                    w,
+                    h,
+                    args.output_image_path,
+                    args.no_overwriting_output,
+                    saved_results,
+                    args.saved_image_leading_zero_count,
+                )
                 print_status(
                     python_iteration, args.iterations_in_kernel_per_call, start_time
                 )
@@ -176,7 +220,17 @@ def main():
             ).wait()
 
     except KeyboardInterrupt:
-        save_result(src, queue, dest_buf, w, h, args.output_image_path)
+        saved_results = save_result(
+            src,
+            queue,
+            dest_buf,
+            w,
+            h,
+            args.output_image_path,
+            args.no_overwriting_output,
+            saved_results,
+            args.saved_image_leading_zero_count,
+        )
         print_status(python_iteration, args.iterations_in_kernel_per_call, start_time)
 
 
