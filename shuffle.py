@@ -16,14 +16,18 @@ filename = "big_palette.png"
 # filename = "tiny.png"
 
 # TODO: REMOVE THESE FROM HERE
-ITERATIONS_IN_KERNEL_PER_CALL = 1
+# You can set iterations_in_kernel_per_call higher than 1 in some cases
+# which can speed up the program by 3 times,
+# but make sure to run compare_color_occurrences.py
+# if you do set it higher, since it can mess some images up!
+iterations_in_kernel_per_call = 1
 
-SECONDS_BETWEEN_STATUS_UPDATES = 10
+seconds_between_status_updates = 10
 
 
 def print_status(python_iteration, start_time):
     print(
-        f"Iteration {(python_iteration + 1) * ITERATIONS_IN_KERNEL_PER_CALL:.0f} ({python_iteration + 1:.0f} * {ITERATIONS_IN_KERNEL_PER_CALL:.0f}) at {time.time() - start_time:.1f} seconds"
+        f"Iteration {(python_iteration + 1) * iterations_in_kernel_per_call:.0f} ({python_iteration + 1:.0f} * {iterations_in_kernel_per_call:.0f}) at {time.time() - start_time:.1f} seconds"
     )
 
 
@@ -37,23 +41,11 @@ def save_result(src, queue, dest_buf, w, h):
     dest_img.save(f"output/{filename}")
 
 
-def main():
-    start_time = time.time()
-
-    # Initialize OpenCL
-    os.environ["PYOPENCL_CTX"] = "0"
-    os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
-    ctx = cl.create_some_context()
-    queue = cl.CommandQueue(ctx)
-
+def get_opencl_code():
     opencl_code = Path("shuffle.cl").read_text()
 
-    # You can set ITERATIONS_IN_KERNEL_PER_CALL higher than 1 in some cases
-    # which can speed up the program by 3 times,
-    # but make sure to run compare_color_occurrences.py
-    # if you do set it higher, since it can mess some images up!
     defines = {
-        "ITERATIONS_IN_KERNEL_PER_CALL": "1",
+        "ITERATIONS_IN_KERNEL_PER_CALL": iterations_in_kernel_per_call,
         "KERNEL_RADIUS": "10",
         "MODE": "LCG",
     }
@@ -65,11 +57,21 @@ def main():
         )
     )
 
-    opencl_code = defines_str + "\n\n" + opencl_code
+    return defines_str + "\n\n" + opencl_code
+
+
+def main():
+    start_time = time.time()
+
+    # Initialize OpenCL
+    os.environ["PYOPENCL_CTX"] = "0"
+    os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
+    ctx = cl.create_some_context()
+    queue = cl.CommandQueue(ctx)
 
     # TODO: Try to find useful optimization flags
     # Load and build OpenCL function
-    prg = cl.Program(ctx, opencl_code).build(
+    prg = cl.Program(ctx, get_opencl_code()).build(
         options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1"
     )
 
@@ -121,9 +123,8 @@ def main():
         while True:
             python_iteration += 1
 
-            if time.time() > last_printed_time + SECONDS_BETWEEN_STATUS_UPDATES:
+            if time.time() > last_printed_time + seconds_between_status_updates:
                 save_result(src, queue, dest_buf, w, h)
-
                 print_status(python_iteration, start_time)
 
                 last_printed_time = time.time()
@@ -138,10 +139,9 @@ def main():
             opencl_shuffle(
                 queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2
             ).wait()
+
     except KeyboardInterrupt:
         save_result(src, queue, dest_buf, w, h)
-
-        # print(f"Program took {time.time() - start_time:.1f} seconds")
         print_status(python_iteration, start_time)
 
 

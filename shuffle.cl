@@ -1,5 +1,6 @@
-// Solely here to make my VS Code highlighter
-// not whine about the real define values not being in this file
+// These #defines in here are deliberately never reached
+// They are solely here to make my VS Code highlighter
+// not whine about the *real* defines not being in this file
 #ifndef MAKE_VSCODE_HIGHLIGHTER_HAPPY
 #define ITERATIONS_IN_KERNEL_PER_CALL 0
 #define KERNEL_RADIUS 0
