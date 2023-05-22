@@ -1,34 +1,23 @@
-#define NUM_ROUNDS 24
-#define KERNEL_SIDE_LENGTH 1
-#define MODE PHILOX
+#define ITERATION_COUNT 1e6
+#define KERNEL_RADIUS 1
+#define MODE LCG
 
-#define uint32_t uint
-#define uint64_t ulong
+#define NUM_PHILOX_ROUNDS 24
+
+#define u32 uint
+#define u64 ulong
 
 enum MODE {
 	LCG,
 	PHILOX,
 };
 
-// Source: https://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
-uint rand(uint2 *state)
-{
-    enum { A=4294883355U };
-    uint x=(*state).x, c=(*state).y;  // Unpack the state
-    uint res=x^c;                     // Calculate the result
-    uint hi=mul_hi(x,A);              // Step the RNG
-    x=x*A+c;
-    c=hi+(x<c);
-    *state=(uint2)(x,c);               // Pack the state back up
-    return res;                       // Return the next result
-}
-
-uint64_t round_up_to_power_of_2(
-	uint64_t a
+u64 round_up_to_power_of_2(
+	u64 a
 ) {
 	if(a & (a - 1))
 	{
-		uint64_t i;
+		u64 i;
 		for(i = 0; a > 1; i++)
 		{
 			a >>= 1ull;
@@ -40,23 +29,18 @@ uint64_t round_up_to_power_of_2(
 	return a;
 }
 
-uint64_t lcg(
-	uint64_t capacity,
-	uint64_t val,
-	uint2 *rand_state
+u64 lcg(
+	u64 capacity,
+	u64 val,
+	u32 multiplier_rand,
+	u32 addition_rand
 ) {
-	uint64_t modulus = round_up_to_power_of_2(capacity);
-
-	// TODO: Ask authors what I should do in place of random_function() here:
-	uint64_t multiplier_rand = rand(rand_state);
+	u64 modulus = round_up_to_power_of_2(capacity);
 
 	// Must be odd so it is coprime to modulus
-	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
+	u64 multiplier = (multiplier_rand * 2 + 1) % modulus;
 
-	// TODO: Ask authors what I should do in place of random_function() here:
-	uint64_t addition_rand = rand(rand_state);
-
-	uint64_t addition = addition_rand % modulus;
+	u64 addition = addition_rand % modulus;
 
 	// Modulus must be power of two
 	// assert((modulus & (modulus - 1)) == 0);
@@ -65,27 +49,27 @@ uint64_t lcg(
 		printf("Assertion failure: Modulus wasn't power of two!\n");
 	}
 
-	// printf("modulus: %d, multiplier: %d, addition: %d, returned: %d\n", modulus, multiplier, addition, ((val * multiplier) + addition) & (modulus - 1));
+	// printf("val: %d, modulus: %d, multiplier_rand: %d, multiplier: %d, addition: %d, returned: %d\n", val, modulus, multiplier_rand, multiplier, addition, ((val * multiplier) + addition) & (modulus - 1));
 
 	return ((val * multiplier) + addition) & (modulus - 1);
 }
 
-uint32_t mulhilo(
-	uint64_t a,
-	uint32_t b,
-	uint32_t *hip
+u32 mulhilo(
+	u64 a,
+	u32 b,
+	u32 *hip
 ) {
-    uint64_t product = a * convert_ulong(b);
+    u64 product = a * convert_ulong(b);
     *hip = product >> 32;
     return convert_uint(product);
 }
 
-uint64_t get_cipher_bits(uint64_t capacity)
+u64 get_cipher_bits(u64 capacity)
 {
 	if(capacity == 0)
 		return 0;
 
-	uint64_t i = 0;
+	u64 i = 0;
 	capacity--;
 	while(capacity != 0)
 	{
@@ -96,38 +80,38 @@ uint64_t get_cipher_bits(uint64_t capacity)
 	return max(i, convert_ulong(4));
 }
 
-uint64_t philox(
-	uint64_t capacity,
-	uint64_t val,
-	uint2 *rand_state
+u64 philox(
+	u64 capacity,
+	u64 val,
+	u32 rand
 ) {
-	uint64_t M0 = 0xD2B74407B1CE6E93;
-    uint32_t key[NUM_ROUNDS];
+	u64 M0 = 0xD2B74407B1CE6E93;
+    u32 key[NUM_PHILOX_ROUNDS];
 
-	uint64_t total_bits = get_cipher_bits(capacity);
+	u64 total_bits = get_cipher_bits(capacity);
 
 	// Half bits rounded down
-	uint64_t left_side_bits = total_bits / 2;
-	uint64_t left_side_mask = (1ull << left_side_bits) - 1;
+	u64 left_side_bits = total_bits / 2;
+	u64 left_side_mask = (1ull << left_side_bits) - 1;
 
 	// Half the bits rounded up
-	uint64_t right_side_bits = total_bits - left_side_bits;
-	uint64_t right_side_mask = (1ull << right_side_bits) - 1;
-	for(int i = 0; i < NUM_ROUNDS; i++)
+	u64 right_side_bits = total_bits - left_side_bits;
+	u64 right_side_mask = (1ull << right_side_bits) - 1;
+
+	for(int i = 0; i < NUM_PHILOX_ROUNDS; i++)
 	{
-		// TODO: Ask authors what I should do in place of random_function() here:
-		key[i] = rand(rand_state);
+		key[i] = rand;
 	}
 
-	uint32_t state[2] = {
+	u32 state[2] = {
 		convert_uint(val >> right_side_bits),
 		convert_uint(val & right_side_mask)
 	};
 
-	for(int i = 0; i < NUM_ROUNDS; i++)
+	for(int i = 0; i < NUM_PHILOX_ROUNDS; i++)
 	{
-		uint32_t hi;
-		uint32_t lo = mulhilo(M0, state[0], &hi);
+		u32 hi;
+		u32 lo = mulhilo(M0, state[0], &hi);
 		lo = (lo << (right_side_bits - left_side_bits)) | state[1] >> left_side_bits;
 		state[0] = ((hi ^ key[i]) ^ state[1]) & left_side_mask;
 		state[1] = lo & right_side_mask;
@@ -185,7 +169,8 @@ void swap(
 int get_shuffled_index(
 	int i,
 	int num_pixels,
-	uint2 *rand_state
+	u32 rand1,
+	u32 rand2
 ) {
 	// assert(i < num_pixels);
 	// TODO: Replace with proper assert() somehow
@@ -197,9 +182,9 @@ int get_shuffled_index(
 	// This loop is guaranteed to terminate if i < num_pixels
 	do {
 		if (MODE == LCG) {
-			shuffled = lcg(num_pixels, shuffled, rand_state);
+			shuffled = lcg(num_pixels, shuffled, rand1, rand2);
 		} else {
-			shuffled = philox(num_pixels, shuffled, rand_state);
+			shuffled = philox(num_pixels, shuffled, rand1);
 		}
 	} while (shuffled >= num_pixels);
 
@@ -232,11 +217,18 @@ int get_score(
 ) {
 	int score = 0;
 
-	for (int dy = -KERNEL_SIDE_LENGTH; dy <= KERNEL_SIDE_LENGTH; dy++) {
-		for (int dx = -KERNEL_SIDE_LENGTH; dx <= KERNEL_SIDE_LENGTH; dx++) {
+	int dy_min = -min(center.y, KERNEL_RADIUS);
+	int dy_max = min(height - 1 - center.y, KERNEL_RADIUS);
+
+	int dx_min = -min(center.x, KERNEL_RADIUS);
+	int dx_max = min(width - 1 - center.x, KERNEL_RADIUS);
+
+	for (int dy = dy_min; dy <= dy_max; dy++) {
+		for (int dx = dx_min; dx <= dx_max; dx++) {
+
 			int2 neighbor = (int2){center.x + dx, center.y + dy};
 
-			if ((center.x == neighbor.x && center.y == neighbor.y)
+			if ((dx == 0 && dy == 0)
 			|| neighbor.x < 0 || neighbor.x >= width
 			|| neighbor.y < 0 || neighbor.y >= height) {
 				continue;
@@ -247,6 +239,18 @@ int get_score(
 			uint4 neighbor_pixel = get_pixel(src, neighbor);
 
 			score += get_squared_color_difference(src, pixel, neighbor_pixel);
+
+			// TODO: Not sure whether squared_color_difference is a good idea?
+			// The advantage of it is that it fixes the issues on palette.png
+			// with a KERNEL_RADIUS of 15 where none of the pixels get moved.
+			// I think it can work if it's tuned a bit more to be less aggressive?
+
+			// int squared_color_difference = get_squared_color_difference(src, pixel, neighbor_pixel);
+
+			// int distance_squared = dx * dx + dy * dy;
+
+			// score += squared_color_difference / distance_squared;
+			// printf("squared_color_difference: %d, distance_squared: %d, squared_color_difference / distance_squared: %d, score: %d\n", squared_color_difference, distance_squared, squared_color_difference / distance_squared, score);
 
 			// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
 			// if (gid == 1 && center.x == 1 && center.y == 0 && pixel.x == 150) {
@@ -301,35 +305,45 @@ bool should_swap(
 kernel void shuffle_(
 	read_only image2d_t src,
 	write_only image2d_t dest,
-	uint32_t iteration_number
+	u32 rand1,
+	u32 rand2
 ) {
-	// TODO: Test if using get_image_dim() instead of these two calls is faster
-	int width = get_image_width(src);
-	int height = get_image_height(src);
+	// TODO: Move as much as possible out of this loop!
 
-	int pixel_count = width * height;
+	for (int iteration = 0; iteration < ITERATION_COUNT; iteration++) {
+		// TODO: Is this defined to wrap around in OpenCL?
+		// TODO: PHILOX its results are garbage; need to re-add rand()
+		// from my Git history if I want to keep using PHILOX
+		rand1++;
 
-	int gid = get_global_id(0);
-	int i1 = gid * 2;
-	int i2 = i1 + 1;
+		// TODO: Test if using get_image_dim() instead of these two calls is faster
+		int width = get_image_width(src);
+		int height = get_image_height(src);
 
-	uint2 rand_state = (uint2)(gid, iteration_number);
+		int pixel_count = width * height;
 
-	int shuffled_i1 = get_shuffled_index(i1, pixel_count, &rand_state);
-	int shuffled_i2 = get_shuffled_index(i2, pixel_count, &rand_state);
+		int gid = get_global_id(0);
+		int i1 = gid * 2;
+		int i2 = i1 + 1;
 
-	int2 pos1 = get_pos(shuffled_i1, width);
-	int2 pos2 = get_pos(shuffled_i2, width);
+		int shuffled_i1 = get_shuffled_index(i1, pixel_count, rand1, rand2);
+		int shuffled_i2 = get_shuffled_index(i2, pixel_count, rand1, rand2);
 
-	// TODO: Stop unnecessarily passing gid to a bunch of functions!
-	if (should_swap(src, width, height, pos1, pos2, gid)) {
-		swap(src, dest, pos1, pos2);
+		int2 pos1 = get_pos(shuffled_i1, width);
+		int2 pos2 = get_pos(shuffled_i2, width);
+
+		// printf("i1: %d, i2: %d, shuffled_i1: %d, shuffled_i2: %d, pos1: {%d,%d}, pos2: {%d,%d}", i1, i2, shuffled_i1, shuffled_i2, pos1.x, pos1.y, pos2.x, pos2.y);
+
+		// TODO: Stop unnecessarily passing gid to a bunch of functions!
+		if (should_swap(src, width, height, pos1, pos2, gid)) {
+			swap(src, dest, pos1, pos2);
+		}
+
+		// TODO: A fence may be good enough and faster than a barrier?
+		barrier(CLK_LOCAL_MEM_FENCE);
+
+		// Copy the dst buffer to the src buffer
+		set_pixel(src, pos1, get_pixel(dest, pos1));
+		set_pixel(src, pos2, get_pixel(dest, pos2));
 	}
-
-	// TODO: A fence may be good enough and faster than a barrier?
-	// barrier(CLK_LOCAL_MEM_FENCE);
-
-	// Copy the dst buffer to the src buffer
-	// set_pixel(src, pos1, get_pixel(dest, pos1));
-	// set_pixel(src, pos2, get_pixel(dest, pos2));
 }
