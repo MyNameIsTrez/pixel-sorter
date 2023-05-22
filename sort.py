@@ -39,10 +39,10 @@ def save_result(
     # Save the image with/without overwriting the old image
     if no_overwriting_output:
         dest_img.save(
-            f"{output_image_path.with_suffix('')}_{saved_results:0{saved_image_leading_zero_count}d}.png"
+            f"{output_image_path.with_suffix('')}_{saved_results:0{saved_image_leading_zero_count}d}{output_image_path.suffix}"
         )
     else:
-        dest_img.save(f"{output_image_path.with_suffix('')}.png")
+        dest_img.save(output_image_path)
 
     return saved_results
 
@@ -102,7 +102,7 @@ def add_parser_arguments(parser):
         "-m",
         "--shuffle-mode",
         type=str,
-        default="PHILOX",
+        default="LCG",
         help="The shuffle mode: LCG is faster, while PHILOX is higher quality",
     )
     parser.add_argument(
@@ -128,6 +128,9 @@ def main():
     )
     add_parser_arguments(parser)
     args = parser.parse_args()
+
+    if args.shuffle_mode == "PHILOX":
+        raise Exception("PHILOX creates shuffle collisions, so meanwhile just use LCG")
 
     # Initialize OpenCL
     os.environ["PYOPENCL_CTX"] = "0"
@@ -156,6 +159,8 @@ def main():
 
     # Build a 2D OpenCL Image from the numpy array
     src_buf = cl.image_from_array(ctx, src, 4)
+    # src_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(w, h))
+    # cl.enqueue_copy(queue, src_buf, src, origin=(0, 0), region=(w, h))
 
     # Build destination OpenCL Image
     fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.UNSIGNED_INT8)
@@ -221,6 +226,8 @@ def main():
             # Numpy handles unsigned wraparound for us
             rand1 = np.uint32(rand1 + 1)
 
+            # TODO: Why does removing the wait() suddenly fix tiny.png wrong count issues??
+
             # The .wait() is crucial!
             # The reason being that the OpenCL kernel call is async,
             # so without it you end up being unable to use Ctrl+C
@@ -234,6 +241,10 @@ def main():
                 rand1,
                 rand2,
             ).wait()
+
+            # if python_iteration > 1510:
+            # if python_iteration > 5000:
+            #     return
 
     except KeyboardInterrupt:
         saved_results = save_result(
