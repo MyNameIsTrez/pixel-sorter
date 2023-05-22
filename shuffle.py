@@ -6,18 +6,19 @@ import numpy as np
 import pyopencl as cl
 from PIL import Image
 
+# TODO: Let CLI ask for input and output filepaths instead
 # filename = "all_colors.png"
-# filename = "big_palette.png"
-filename = "elephant.png"
+filename = "big_palette.png"
+# filename = "elephant.png"
 # filename = "grid.png"
 # filename = "palette.png"
 # filename = "small.png"
 # filename = "tiny.png"
 
 # TODO: REMOVE THESE FROM HERE
-ITERATIONS_IN_KERNEL_PER_CALL = 1e1
+ITERATIONS_IN_KERNEL_PER_CALL = 1
 
-SECONDS_BETWEEN_STATUS_UPDATES = 0.5
+SECONDS_BETWEEN_STATUS_UPDATES = 10
 
 
 def print_status(python_iteration, start_time):
@@ -88,37 +89,37 @@ def main():
 
     opencl_shuffle = prg.shuffle_
 
-    opencl_shuffle(queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2)
-    save_result(src, queue, dest_buf, w, h)
-    print_status(python_iteration, start_time)
+    # TODO: Fix wrong elephant color count with ITERATIONS_IN_KERNEL_PER_CALL 2
+    # opencl_shuffle(queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2)
+    # save_result(src, queue, dest_buf, w, h)
+    # print_status(python_iteration, start_time)
 
-    # try:
-    #     while True:
-    #         python_iteration += 1
+    try:
+        while True:
+            python_iteration += 1
 
-    #         if time.time() > last_printed_time + SECONDS_BETWEEN_STATUS_UPDATES:
-    #             save_result(src, queue, dest_buf, w, h)
+            if time.time() > last_printed_time + SECONDS_BETWEEN_STATUS_UPDATES:
+                save_result(src, queue, dest_buf, w, h)
 
-    #             print_status(python_iteration, start_time)
+                print_status(python_iteration, start_time)
 
-    #             last_printed_time = time.time()
+                last_printed_time = time.time()
 
-    #         # The .wait() is crucial!
-    #         # The reason being that the OpenCL kernel call is async,
-    #         # so without it you end up being unable to use Ctrl+C
-    #         # to stop the program!
-    #         opencl_shuffle(
-    #             queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2
-    #         )  # .wait()
+            # TODO: Add wraparound code
+            rand1 = np.uint32(rand1 + 1)
 
-    #         # TODO: REMOVE
-    #         time.sleep(1)
+            # The .wait() is crucial!
+            # The reason being that the OpenCL kernel call is async,
+            # so without it you end up being unable to use Ctrl+C
+            # to stop the program!
+            opencl_shuffle(
+                queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2
+            ).wait()
+    except KeyboardInterrupt:
+        save_result(src, queue, dest_buf, w, h)
 
-    # except KeyboardInterrupt:
-    #     # save_result(src, queue, dest_buf, w, h)
-
-    #     # print(f"Program took {time.time() - start_time:.1f} seconds")
-    #     print_status(python_iteration, start_time)
+        # print(f"Program took {time.time() - start_time:.1f} seconds")
+        print_status(python_iteration, start_time)
 
 
 if __name__ == "__main__":

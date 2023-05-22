@@ -1,5 +1,5 @@
-#define ITERATIONS_IN_KERNEL_PER_CALL 2
-#define KERNEL_RADIUS 1
+#define ITERATIONS_IN_KERNEL_PER_CALL 1
+#define KERNEL_RADIUS 10
 #define MODE LCG
 
 #define NUM_PHILOX_ROUNDS 24
@@ -235,6 +235,33 @@ int get_squared_color_difference(
 	);
 }
 
+int get_neighbor_score_distanceless(
+	read_only image2d_t src,
+	uint4 pixel,
+	uint4 neighbor_pixel
+) {
+	return get_squared_color_difference(src, pixel, neighbor_pixel);
+}
+
+int get_neighbor_score_with_distance(
+	read_only image2d_t src,
+	uint4 pixel,
+	uint4 neighbor_pixel,
+	int dx,
+	int dy
+) {
+	// TODO: Not sure whether squared_color_difference is a good idea?
+	// The advantage of it is that it fixes the issues on palette.png
+	// with a KERNEL_RADIUS of 15 where none of the pixels get moved.
+	// I think it can work if it's tuned a bit more to be less aggressive?
+
+	int squared_color_difference = get_squared_color_difference(src, pixel, neighbor_pixel);
+
+	int distance_squared = dx * dx + dy * dy;
+
+	return squared_color_difference / distance_squared;
+}
+
 int get_score(
 	read_only image2d_t src,
 	int width,
@@ -262,22 +289,14 @@ int get_score(
 				continue;
 			}
 
-			// printf("center: {%d,%d}, neighbor: {%d,%d}, dims: {%d,%d}\n", center.x, center.y, neighbor.x, neighbor.y, width, height);
-
 			uint4 neighbor_pixel = get_pixel(src, neighbor);
 
-			score += get_squared_color_difference(src, pixel, neighbor_pixel);
+			// score += get_neighbor_score_distanceless(src, pixel, neighbor_pixel);
+			score += get_neighbor_score_with_distance(src, pixel, neighbor_pixel, dx, dy);
 
-			// TODO: Not sure whether squared_color_difference is a good idea?
-			// The advantage of it is that it fixes the issues on palette.png
-			// with a KERNEL_RADIUS of 15 where none of the pixels get moved.
-			// I think it can work if it's tuned a bit more to be less aggressive?
 
-			// int squared_color_difference = get_squared_color_difference(src, pixel, neighbor_pixel);
+			// printf("center: {%d,%d}, neighbor: {%d,%d}, dims: {%d,%d}\n", center.x, center.y, neighbor.x, neighbor.y, width, height);
 
-			// int distance_squared = dx * dx + dy * dy;
-
-			// score += squared_color_difference / distance_squared;
 			// printf("squared_color_difference: %d, distance_squared: %d, squared_color_difference / distance_squared: %d, score: %d\n", squared_color_difference, distance_squared, squared_color_difference / distance_squared, score);
 
 			// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
