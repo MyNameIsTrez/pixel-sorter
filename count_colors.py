@@ -1,16 +1,11 @@
+import argparse
+from pathlib import Path
+
 import numpy as np
 from PIL import Image
 
-# filename = "all_colors.png"
-# filename = "big_palette.png"
-filename = "elephant.png"
-# filename = "grid.png"
-# filename = "palette.png"
-# filename = "small.png"
-# filename = "tiny.png"
 
-
-def get_colors_and_counts(filepath):
+def _get_colors_and_counts(filepath):
     img = Image.open(filepath).convert("RGB")
 
     arr = np.array(img)
@@ -20,9 +15,9 @@ def get_colors_and_counts(filepath):
     return colors, counts
 
 
-def main():
-    input_colors, input_counts = get_colors_and_counts(f"input/{filename}")
-    output_colors, output_counts = get_colors_and_counts(f"output/{filename}")
+def count_colors(input_image_path, output_image_path):
+    input_colors, input_counts = _get_colors_and_counts(input_image_path)
+    output_colors, output_counts = _get_colors_and_counts(output_image_path)
 
     colors_equal = np.array_equal(input_colors, output_colors)
     counts_equal = np.array_equal(input_counts, output_counts)
@@ -32,6 +27,29 @@ def main():
     assert counts_equal, "❌ The color counts of the input and output aren't identical!"
 
     print("🎉 Images have identical color occurrences!")
+
+
+def add_parser_arguments(parser):
+    parser.add_argument(
+        "input_image_path",
+        type=Path,
+        help="The path to the input image",
+    )
+    parser.add_argument(
+        "output_image_path",
+        type=Path,
+        help="The path to the output image",
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    add_parser_arguments(parser)
+    args = parser.parse_args()
+
+    count_colors(args.input_image_path, args.output_image_path)
 
 
 if __name__ == "__main__":
