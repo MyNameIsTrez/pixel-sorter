@@ -7,13 +7,58 @@ import humanize
 import numpy as np
 import pyopencl as cl
 from PIL import Image
+from skimage import color
+
+import count_colors
 
 
-def unpack_lab_from_rgb(pixels):
+# TODO: pixels[0][97] doesn't match up
+# at the start of pack_lab_into_pixels()
+# and end of unpack_rgb_from_pixels()
+def unpack_rgb_from_pixels(pixels):
+    lab = pixels[:, :, :3].astype(np.float64)
+
+    lab[:, :, :3] -= 128
+
+    rgb_normalized = color.lab2rgb(lab)
+    rgb_normalized *= 255
+    pixels[:, :, :3] = rgb_normalized
+
+    # # Pack the lab into the rgb
+    # pixels[:, :, :3] = rgb
+
+    # for y = 0; y < img.Height; ++y)
+    #     for (int x = 0; x < img.Width; ++x)
+    #         var pixel = pixels[y, x];
+
+    #         var L = GetDenormalizedLab(pixel.R, labInfo.minL, labInfo.rangeL);
+    #         var A = GetDenormalizedLab(pixel.G, labInfo.minA, labInfo.rangeA);
+    #         var B = GetDenormalizedLab(pixel.B, labInfo.minB, labInfo.rangeB);
+    #         var lab = new LabColor(L, A, B);
+    #         var rgb = labInfo.LabToRGB.Convert(lab);
+
+    #         var denormalizedR = Convert.ToByte(Math.Clamp(rgb.R * 255, 0, 255));
+    #         var denormalizedG = Convert.ToByte(Math.Clamp(rgb.G * 255, 0, 255));
+    #         var denormalizedB = Convert.ToByte(Math.Clamp(rgb.B * 255, 0, 255));
+    #         pixels[y, x] = new Rgba32(denormalizedR, denormalizedG, denormalizedB);
+
     return pixels
 
 
-def pack_lab_into_rgb(pixels):
+def pack_lab_into_pixels(pixels):
+    # [:, :, :3] is to remove the alpha channels for rgb2lab()
+    # The / 255 is normalization
+    rgb_normalized = pixels[:, :, :3] / 255
+    lab = color.rgb2lab(rgb_normalized)
+
+    # pixels contains unsigned bytes, while lab often contains negative values
+    # The += 128 is guaranteed to turn L, A and B into positive values:
+    # https://scikit-image.org/docs/stable/api/skimage.color.html#lab2rgb
+    lab[:, :, :3] += 128
+
+    # Pack the lab into the rgb
+    pixels[:, :, :3] = lab
+
     return pixels
 
 
@@ -35,8 +80,8 @@ def save_result(
     src,
     queue,
     dest_buf,
-    w,
-    h,
+    width,
+    height,
     output_image_path,
     no_overwriting_output,
     saved_results,
@@ -44,11 +89,18 @@ def save_result(
     color_comparison,
 ):
     # Copy result back to host
-    dest = np.empty_like(src)
-    cl.enqueue_copy(queue, dest, dest_buf, origin=(0, 0), region=(w, h))
+    dest_float32 = np.empty_like(src)
+    cl.enqueue_copy(
+        queue, dest_float32, dest_buf, origin=(0, 0), region=(width, height)
+    )
 
-    if color_comparison == "LAB":
-        src = unpack_lab_from_rgb(dest)
+    # TODO: Remove?
+    # if color_comparison == "LAB":
+    #     src = unpack_rgb_from_pixels(dest)
+
+    dest_float32 *= 255
+
+    dest = dest_float32.astype(np.uint8)
 
     # Convert the array to an image
     dest_img = Image.fromarray(dest)
@@ -178,32 +230,33 @@ def main():
     # Load and convert source image
     # This example code only works with RGBA images
     src_img = Image.open(args.input_image_path).convert("RGBA")
-    src = np.array(src_img)
+    src = np.array(src_img, dtype=np.float32)
 
-    if args.color_comparison == "LAB":
-        src = pack_lab_into_rgb(src)
+    # Get size of source image
+    height = src.shape[0]
+    width = src.shape[1]
+    # print(f"width: {width}, height: {height}")
 
-    # Get size of source image (note height is stored at index 0)
-    h = src.shape[0]
-    w = src.shape[1]
-    # print(f"width: {w}, height: {h}")
+    # TODO: Remove?
+    # if args.color_comparison == "LAB":
+    #     src = pack_lab_into_pixels(src)
 
-    # Build a 2D OpenCL Image from the numpy array
-    src_buf = cl.image_from_array(ctx, src, 4)
-    # src_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(w, h))
-    # cl.enqueue_copy(queue, src_buf, src, origin=(0, 0), region=(w, h))
+    src /= 255
 
-    # Build destination OpenCL Image
-    fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.UNSIGNED_INT8)
+    fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.FLOAT)
+
+    # src_buf = cl.image_from_array(ctx, src, 4)  # , norm_int=True)
+    src_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
+    cl.enqueue_copy(queue, src_buf, src, origin=(0, 0), region=(width, height))
 
     # TODO: Try to make this WRITE_ONLY again for optimization purposes?
-    dest_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(w, h))
+    dest_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
 
-    cl.enqueue_copy(queue, dest_buf, src, origin=(0, 0), region=(w, h))
+    cl.enqueue_copy(queue, dest_buf, src, origin=(0, 0), region=(width, height))
 
-    assert w % 2 == 0, "This program doesn't support images with an odd width"
+    assert width % 2 == 0, "This program doesn't support images with an odd width"
 
-    thread_count = int(w / 2) * h
+    thread_count = int(width / 2) * height
     thread_dimensions = (thread_count, 1)
 
     # TODO: What does setting global_local_work_sizes to None do?
@@ -235,8 +288,8 @@ def main():
                     src,
                     queue,
                     dest_buf,
-                    w,
-                    h,
+                    width,
+                    height,
                     args.output_image_path,
                     args.no_overwriting_output,
                     saved_results,
@@ -280,8 +333,8 @@ def main():
             #         src,
             #         queue,
             #         dest_buf,
-            #         w,
-            #         h,
+            #         width,
+            #         height,
             #         args.output_image_path,
             #         args.no_overwriting_output,
             #         saved_results,
@@ -296,15 +349,16 @@ def main():
             #         start_time,
             #     )
 
-            #     return
+            # TODO: REMOVE
+            return
 
     except KeyboardInterrupt:
         saved_results = save_result(
             src,
             queue,
             dest_buf,
-            w,
-            h,
+            width,
+            height,
             args.output_image_path,
             args.no_overwriting_output,
             saved_results,
@@ -319,6 +373,8 @@ def main():
             start_time,
             thread_count,
         )
+
+        count_colors.count_colors(args.input_image_path, args.output_image_path)
 
 
 if __name__ == "__main__":
