@@ -20,7 +20,7 @@ At the heart of the program lies my port of [CUDA-Shuffle](https://github.com/dj
 ## How to turn the output images into a video
 
 ### webm
-`ffmpeg -i output/palette_%04d.png -crf 0 -s 160x160 -sws_flags neighbor output/output.webm`
+`ffmpeg -framerate 1 -i output/elephant_%04d.png -crf 0 -s 1024x662 -sws_flags neighbor -r 30 output/output.webm`
 
 ### mp4 (bigger files but more widely supported)
-`ffmpeg -i output/palette_%04d.png -crf 0 -s 160x160 -sws_flags neighbor -c:v libx264 -pix_fmt yuv420p output/output.mp4`
+`ffmpeg -framerate 1 -i output/elephant_%04d.png -crf 0 -s 1024x662 -sws_flags neighbor -c:v libx264 -pix_fmt yuv420p -r 30 output/output.mp4`
