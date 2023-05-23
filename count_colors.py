@@ -26,7 +26,7 @@ def count_colors(input_image_path, output_image_path):
 
     assert counts_equal, "❌ The color counts of the input and output aren't identical!"
 
-    print("🎉 Images have identical color occurrences!")
+    print("🎉 Images have identical color counts!")
 
 
 def add_parser_arguments(parser):
