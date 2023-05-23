@@ -153,7 +153,7 @@ u64 philox(
 	return convert_ulong(state[0]) << right_side_bits | convert_ulong(state[1]);
 }
 
-uint4 get_pixel(
+float4 get_pixel(
 	read_only image2d_t src,
 	int2 pos
 ) {
@@ -165,15 +165,15 @@ uint4 get_pixel(
 	// https://registry.khronos.org/OpenCL/specs/opencl-1.1.pdf
 	sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
-	return read_imageui(src, sampler, pos);
+	return read_imagef(src, sampler, pos);
 }
 
 void set_pixel(
 	write_only image2d_t dest,
 	int2 pos,
-	uint4 pixel
+	float4 pixel
 ) {
-	write_imageui(dest, pos, pixel);
+	write_imagef(dest, pos, pixel);
 }
 
 int2 get_pos(
@@ -191,8 +191,8 @@ void swap(
 	int2 pos1,
 	int2 pos2
 ) {
-	uint4 pixel1 = get_pixel(src, pos1);
-	uint4 pixel2 = get_pixel(src, pos2);
+	float4 pixel1 = get_pixel(src, pos1);
+	float4 pixel2 = get_pixel(src, pos2);
 
 	set_pixel(dest, pos1, pixel2);
 	set_pixel(dest, pos2, pixel1);
@@ -224,14 +224,14 @@ int get_shuffled_index(
 	return shuffled;
 }
 
-int get_squared_color_difference(
+float get_squared_color_difference(
 	read_only image2d_t src,
-	uint4 pixel,
-	uint4 neighbor_pixel
+	float4 pixel,
+	float4 neighbor_pixel
 ) {
-	int r_diff = pixel.x - neighbor_pixel.x;
-	int g_diff = pixel.y - neighbor_pixel.y;
-	int b_diff = pixel.z - neighbor_pixel.z;
+	float r_diff = pixel.x - neighbor_pixel.x;
+	float g_diff = pixel.y - neighbor_pixel.y;
+	float b_diff = pixel.z - neighbor_pixel.z;
 
 	return (
 		r_diff * r_diff +
@@ -240,18 +240,18 @@ int get_squared_color_difference(
 	);
 }
 
-int get_neighbor_score_distanceless(
+float get_neighbor_score_distanceless(
 	read_only image2d_t src,
-	uint4 pixel,
-	uint4 neighbor_pixel
+	float4 pixel,
+	float4 neighbor_pixel
 ) {
 	return get_squared_color_difference(src, pixel, neighbor_pixel);
 }
 
-int get_neighbor_score_with_distance(
+float get_neighbor_score_with_distance(
 	read_only image2d_t src,
-	uint4 pixel,
-	uint4 neighbor_pixel,
+	float4 pixel,
+	float4 neighbor_pixel,
 	int dx,
 	int dy
 ) {
@@ -260,22 +260,22 @@ int get_neighbor_score_with_distance(
 	// with a KERNEL_RADIUS of 15 where none of the pixels get moved.
 	// I think it can work if it's tuned a bit more to be less aggressive?
 
-	int squared_color_difference = get_squared_color_difference(src, pixel, neighbor_pixel);
+	float squared_color_difference = get_squared_color_difference(src, pixel, neighbor_pixel);
 
 	int distance_squared = dx * dx + dy * dy;
 
 	return squared_color_difference / distance_squared;
 }
 
-int get_score(
+float get_score(
 	read_only image2d_t src,
 	int width,
 	int height,
 	int2 center,
-	uint4 pixel,
+	float4 pixel,
 	int gid
 ) {
-	int score = 0;
+	float score = 0;
 
 	int dy_min = -min(center.y, KERNEL_RADIUS);
 	int dy_max = min(height - 1 - center.y, KERNEL_RADIUS);
@@ -294,7 +294,7 @@ int get_score(
 				continue;
 			}
 
-			uint4 neighbor_pixel = get_pixel(src, neighbor);
+			float4 neighbor_pixel = get_pixel(src, neighbor);
 
 			// TODO: Maybe make switching between these two an argparse thing?
 			// score += get_neighbor_score_distanceless(src, pixel, neighbor_pixel);
@@ -327,18 +327,18 @@ bool should_swap(
 	int2 pos2,
 	int gid
 ) {
-	uint4 pixel1 = get_pixel(src, pos1);
-	uint4 pixel2 = get_pixel(src, pos2);
+	float4 pixel1 = get_pixel(src, pos1);
+	float4 pixel2 = get_pixel(src, pos2);
 
-	int i1_old_score = get_score(src, width, height, pos1, pixel1, gid);
-	int i1_new_score = get_score(src, width, height, pos1, pixel2, gid);
-	int i1_score_difference = -i1_old_score + i1_new_score;
+	float i1_old_score = get_score(src, width, height, pos1, pixel1, gid);
+	float i1_new_score = get_score(src, width, height, pos1, pixel2, gid);
+	float i1_score_difference = -i1_old_score + i1_new_score;
 
-	int i2_old_score = get_score(src, width, height, pos2, pixel2, gid);
-	int i2_new_score = get_score(src, width, height, pos2, pixel1, gid);
-	int i2_score_difference = -i2_old_score + i2_new_score;
+	float i2_old_score = get_score(src, width, height, pos2, pixel2, gid);
+	float i2_new_score = get_score(src, width, height, pos2, pixel1, gid);
+	float i2_score_difference = -i2_old_score + i2_new_score;
 
-	int score_difference = i1_score_difference + i2_score_difference;
+	float score_difference = i1_score_difference + i2_score_difference;
 
 	// if (gid == 1) {
 	// if (pos1.x == 1 && pos1.y == 0 && pos2.x == 3 && pos2.y == 1) {
