@@ -16,3 +16,11 @@ At the heart of the program lies my port of [CUDA-Shuffle](https://github.com/dj
 2. `cd` into it.
 3. Install requirements with `pip install -r requirements.txt`
 4. Run `python sort.py -h` for the usage of the program
+
+## How to turn the output images into a video
+
+### webm
+`ffmpeg -i output/palette_%04d.png -crf 0 -s 160x160 -sws_flags neighbor output/output.webm`
+
+### mp4 (bigger files but more widely supported)
+`ffmpeg -i output/palette_%04d.png -crf 0 -s 160x160 -sws_flags neighbor -c:v libx264 -pix_fmt yuv420p output/output.mp4`
