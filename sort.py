@@ -9,6 +9,14 @@ import pyopencl as cl
 from PIL import Image
 
 
+def unpack_lab_from_rgb(pixels):
+    return pixels
+
+
+def pack_lab_into_rgb(pixels):
+    return pixels
+
+
 def print_status(
     saved_results,
     python_iteration,
@@ -33,10 +41,14 @@ def save_result(
     no_overwriting_output,
     saved_results,
     saved_image_leading_zero_count,
+    color_comparison,
 ):
     # Copy result back to host
     dest = np.empty_like(src)
     cl.enqueue_copy(queue, dest, dest_buf, origin=(0, 0), region=(w, h))
+
+    if color_comparison == "LAB":
+        src = unpack_lab_from_rgb(dest)
 
     # Convert the array to an image
     dest_img = Image.fromarray(dest)
@@ -125,6 +137,13 @@ def add_parser_arguments(parser):
         default=0,
         help="The number of leading zeros on saved images; this has no effect if the -n switch isn't passed!",
     )
+    parser.add_argument(
+        "-c",
+        "--color-comparison",
+        type=str,
+        default="LAB",
+        help="The color space in which pixels are compared: LAB mimics how the human eye percieves color, while RGB is easier to implement",
+    )
 
 
 def main():
@@ -160,6 +179,9 @@ def main():
     # This example code only works with RGBA images
     src_img = Image.open(args.input_image_path).convert("RGBA")
     src = np.array(src_img)
+
+    if args.color_comparison == "LAB":
+        src = pack_lab_into_rgb(src)
 
     # Get size of source image (note height is stored at index 0)
     h = src.shape[0]
@@ -219,6 +241,7 @@ def main():
                     args.no_overwriting_output,
                     saved_results,
                     args.saved_image_leading_zero_count,
+                    args.color_comparison,
                 )
 
                 print_status(
@@ -263,6 +286,7 @@ def main():
             #         args.no_overwriting_output,
             #         saved_results,
             #         args.saved_image_leading_zero_count,
+            #         args.color_comparison
             #     )
 
             #     print_status(
@@ -285,6 +309,7 @@ def main():
             args.no_overwriting_output,
             saved_results,
             args.saved_image_leading_zero_count,
+            args.color_comparison,
         )
 
         print_status(
