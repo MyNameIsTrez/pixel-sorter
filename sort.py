@@ -3,16 +3,23 @@ import os
 import time
 from pathlib import Path
 
+import humanize
 import numpy as np
 import pyopencl as cl
 from PIL import Image
 
 
 def print_status(
-    saved_results, python_iteration, iterations_in_kernel_per_call, start_time
+    saved_results,
+    python_iteration,
+    iterations_in_kernel_per_call,
+    start_time,
+    thread_count,
 ):
+    iteration = (python_iteration + 1) * iterations_in_kernel_per_call
+
     print(
-        f"Frame {saved_results}, iteration {(python_iteration + 1) * iterations_in_kernel_per_call:.0f} ({python_iteration + 1:.0f} * {iterations_in_kernel_per_call:.0f}) at {time.time() - start_time:.1f} seconds"
+        f"Frame {saved_results}, {time.time() - start_time:.1f} seconds, iteration {iteration:.0f} ({python_iteration + 1:.0f} * {iterations_in_kernel_per_call:.0f}), {humanize.intword(iteration * thread_count)} attempted swaps"
     )
 
 
@@ -96,7 +103,7 @@ def add_parser_arguments(parser):
         "--kernel-radius",
         type=int,
         default=10,
-        help="The radius of neighbors that get compared against the current pixel's color",
+        help="The radius of neighbors that get compared against the current pixel's color; a higher radius means more blur",
     )
     parser.add_argument(
         "-m",
@@ -130,7 +137,9 @@ def main():
     args = parser.parse_args()
 
     if args.shuffle_mode == "PHILOX":
-        raise Exception("PHILOX creates shuffle collisions, so meanwhile just use LCG")
+        raise Exception(
+            "PHILOX is broken, creating shuffle collisions, so use LCG for now"
+        )
 
     # Initialize OpenCL
     os.environ["PYOPENCL_CTX"] = "0"
@@ -172,13 +181,11 @@ def main():
 
     assert w % 2 == 0, "This program doesn't support images with an odd width"
 
-    # TODO: Having global_size be super large may be bad?
-    # TODO: Should local_size be bigger than 1?
-    # thread_dimensions = (16, 1)
-    thread_dimensions = (int(w / 2) * h, 1)
-    # print(int(w / 2) * h)
-    # thread_dimensions = (4, 1)
+    thread_count = int(w / 2) * h
+    thread_dimensions = (thread_count, 1)
 
+    # TODO: What does setting global_local_work_sizes to None do?
+    # TODO: Do I want to customize it?
     global_local_work_sizes = None
 
     rand1 = np.uint32(42424242)
@@ -188,7 +195,7 @@ def main():
 
     saved_results = 0
 
-    last_printed_time = 0
+    last_printed_time = time.time()
 
     opencl_sort = prg.sort
 
@@ -219,6 +226,7 @@ def main():
                     python_iteration,
                     args.iterations_in_kernel_per_call,
                     start_time,
+                    thread_count,
                 )
 
                 last_printed_time = time.time()
@@ -228,7 +236,7 @@ def main():
 
             # TODO: Why does removing the wait() suddenly fix tiny.png wrong count issues??
 
-            # The .wait() is crucial!
+            # The .wait() at the end of this line is crucial!
             # The reason being that the OpenCL kernel call is async,
             # so without it you end up being unable to use Ctrl+C
             # to stop the program!
@@ -242,8 +250,28 @@ def main():
                 rand2,
             ).wait()
 
-            # if python_iteration > 1510:
+            # TODO: REMOVE!!!!
             # if python_iteration > 5000:
+            # if python_iteration > 0:
+            #     saved_results = save_result(
+            #         src,
+            #         queue,
+            #         dest_buf,
+            #         w,
+            #         h,
+            #         args.output_image_path,
+            #         args.no_overwriting_output,
+            #         saved_results,
+            #         args.saved_image_leading_zero_count,
+            #     )
+
+            #     print_status(
+            #         saved_results,
+            #         python_iteration,
+            #         args.iterations_in_kernel_per_call,
+            #         start_time,
+            #     )
+
             #     return
 
     except KeyboardInterrupt:
@@ -264,6 +292,7 @@ def main():
             python_iteration,
             args.iterations_in_kernel_per_call,
             start_time,
+            thread_count,
         )
 
 

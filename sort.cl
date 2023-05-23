@@ -405,6 +405,7 @@ kernel void sort(
 
 		// TODO: Not sure which of these two flags I should use,
 		// cause either seems to work.
+		// TODO: Not sure if this barrier is still necessary
 		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
 		// not_taken++;
