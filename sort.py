@@ -101,7 +101,7 @@ def add_parser_arguments(parser):
         "--iterations-in-kernel-per-call",
         type=int,
         default=1,
-        help="Setting this higher than 1 can massively speed up the program, but it also messes up on some input images! If you do set it higher, verify the output image with compare_color_occurrences.py",
+        help="Setting this higher than 1 can give a massive speedup, but the end of the program may tell you it messed up the output image!",
     )
     parser.add_argument(
         "-s",
