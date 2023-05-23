@@ -149,7 +149,7 @@ def add_parser_arguments(parser):
         "-n",
         "--no-overwriting-output",
         action="store_true",
-        help="Save all output images, instead of the default behavior of overwriting",
+        help="Save all output images, instead of the default behavior of overwriting; this turns off count_colors() being ran at the end",
     )
     parser.add_argument(
         "-z",
@@ -314,7 +314,8 @@ def main():
             thread_count,
         )
 
-        count_colors.count_colors(args.input_image_path, args.output_image_path)
+        if not args.no_overwriting_output:
+            count_colors.count_colors(args.input_image_path, args.output_image_path)
 
 
 if __name__ == "__main__":
