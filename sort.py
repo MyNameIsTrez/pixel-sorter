@@ -12,52 +12,25 @@ from skimage import color
 import count_colors
 
 
-# TODO: pixels[0][97] doesn't match up
-# at the start of pack_lab_into_pixels()
-# and end of unpack_rgb_from_pixels()
 def unpack_rgb_from_pixels(pixels):
-    lab = pixels[:, :, :3].astype(np.float64)
+    lab = pixels[:, :, :3]
 
-    lab[:, :, :3] -= 128
+    rgb = color.lab2rgb(lab)
 
-    rgb_normalized = color.lab2rgb(lab)
-    rgb_normalized *= 255
-    pixels[:, :, :3] = np.ceil(rgb_normalized)
-    # pixels[:, :, :3] = np.floor(rgb_normalized)
+    rgb *= 255
 
-    # # Pack the lab into the rgb
-    # pixels[:, :, :3] = rgb
-
-    # for y = 0; y < img.Height; ++y)
-    #     for (int x = 0; x < img.Width; ++x)
-    #         var pixel = pixels[y, x];
-
-    #         var L = GetDenormalizedLab(pixel.R, labInfo.minL, labInfo.rangeL);
-    #         var A = GetDenormalizedLab(pixel.G, labInfo.minA, labInfo.rangeA);
-    #         var B = GetDenormalizedLab(pixel.B, labInfo.minB, labInfo.rangeB);
-    #         var lab = new LabColor(L, A, B);
-    #         var rgb = labInfo.LabToRGB.Convert(lab);
-
-    #         var denormalizedR = Convert.ToByte(Math.Clamp(rgb.R * 255, 0, 255));
-    #         var denormalizedG = Convert.ToByte(Math.Clamp(rgb.G * 255, 0, 255));
-    #         var denormalizedB = Convert.ToByte(Math.Clamp(rgb.B * 255, 0, 255));
-    #         pixels[y, x] = new Rgba32(denormalizedR, denormalizedG, denormalizedB);
+    pixels[:, :, :3] = rgb
 
     return pixels
 
 
 def pack_lab_into_pixels(pixels):
-    # [:, :, :3] is to remove the alpha channels for rgb2lab()
-    # The / 255 is normalization
-    rgb_normalized = pixels[:, :, :3] / 255
-    lab = color.rgb2lab(rgb_normalized)
+    rgb = pixels[:, :, :3]
 
-    # pixels contains unsigned bytes, while lab often contains negative values
-    # The += 128 is guaranteed to turn L, A and B into positive values:
-    # https://scikit-image.org/docs/stable/api/skimage.color.html#lab2rgb
-    lab[:, :, :3] += 128
+    rgb /= 255
 
-    # Pack the lab into the rgb
+    lab = color.rgb2lab(rgb)
+
     pixels[:, :, :3] = lab
 
     return pixels
@@ -95,6 +68,8 @@ def save_result(
 
     if color_comparison == "LAB":
         dest = unpack_rgb_from_pixels(dest)
+
+    dest = np.round(dest).astype(np.uint8)
 
     # Convert the array to an image
     dest_img = Image.fromarray(dest)
@@ -224,7 +199,7 @@ def main():
     # Load and convert source image
     # This example code only works with RGBA images
     src_img = Image.open(args.input_image_path).convert("RGBA")
-    src = np.array(src_img)
+    src = np.array(src_img, dtype=np.float32)
 
     # Get size of source image
     height = src.shape[0]
@@ -235,7 +210,7 @@ def main():
     if args.color_comparison == "LAB":
         src = pack_lab_into_pixels(src)
 
-    fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.UNSIGNED_INT8)
+    fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.FLOAT)
 
     # src_buf = cl.image_from_array(ctx, src, 4)  # , norm_int=True)
     src_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
@@ -243,7 +218,6 @@ def main():
 
     # TODO: Try to make this WRITE_ONLY again for optimization purposes?
     dest_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
-
     cl.enqueue_copy(queue, dest_buf, src, origin=(0, 0), region=(width, height))
 
     assert width % 2 == 0, "This program doesn't support images with an odd width"
@@ -317,55 +291,6 @@ def main():
                 rand1,
                 rand2,
             ).wait()
-
-            # TODO: REMOVE!!!!
-            # if python_iteration > 5000:
-            # if python_iteration > 0:
-            #     saved_results = save_result(
-            #         src,
-            #         queue,
-            #         dest_buf,
-            #         width,
-            #         height,
-            #         args.output_image_path,
-            #         args.no_overwriting_output,
-            #         saved_results,
-            #         args.saved_image_leading_zero_count,
-            #         args.color_comparison
-            #     )
-
-            #     print_status(
-            #         saved_results,
-            #         python_iteration,
-            #         args.iterations_in_kernel_per_call,
-            #         start_time,
-            #     )
-
-            # TODO: REMOVE ALL THIS
-            saved_results = save_result(
-                src,
-                queue,
-                dest_buf,
-                width,
-                height,
-                args.output_image_path,
-                args.no_overwriting_output,
-                saved_results,
-                args.saved_image_leading_zero_count,
-                args.color_comparison,
-            )
-
-            print_status(
-                saved_results,
-                python_iteration,
-                args.iterations_in_kernel_per_call,
-                start_time,
-                thread_count,
-            )
-
-            count_colors.count_colors(args.input_image_path, args.output_image_path)
-
-            return
 
     except KeyboardInterrupt:
         saved_results = save_result(
