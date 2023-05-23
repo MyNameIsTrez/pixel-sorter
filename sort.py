@@ -22,7 +22,8 @@ def unpack_rgb_from_pixels(pixels):
 
     rgb_normalized = color.lab2rgb(lab)
     rgb_normalized *= 255
-    pixels[:, :, :3] = rgb_normalized
+    pixels[:, :, :3] = np.ceil(rgb_normalized)
+    # pixels[:, :, :3] = np.floor(rgb_normalized)
 
     # # Pack the lab into the rgb
     # pixels[:, :, :3] = rgb
@@ -89,18 +90,11 @@ def save_result(
     color_comparison,
 ):
     # Copy result back to host
-    dest_float32 = np.empty_like(src)
-    cl.enqueue_copy(
-        queue, dest_float32, dest_buf, origin=(0, 0), region=(width, height)
-    )
+    dest = np.empty_like(src)
+    cl.enqueue_copy(queue, dest, dest_buf, origin=(0, 0), region=(width, height))
 
-    # TODO: Remove?
-    # if color_comparison == "LAB":
-    #     src = unpack_rgb_from_pixels(dest)
-
-    dest_float32 *= 255
-
-    dest = dest_float32.astype(np.uint8)
+    if color_comparison == "LAB":
+        dest = unpack_rgb_from_pixels(dest)
 
     # Convert the array to an image
     dest_img = Image.fromarray(dest)
@@ -230,7 +224,7 @@ def main():
     # Load and convert source image
     # This example code only works with RGBA images
     src_img = Image.open(args.input_image_path).convert("RGBA")
-    src = np.array(src_img, dtype=np.float32)
+    src = np.array(src_img)
 
     # Get size of source image
     height = src.shape[0]
@@ -238,12 +232,10 @@ def main():
     # print(f"width: {width}, height: {height}")
 
     # TODO: Remove?
-    # if args.color_comparison == "LAB":
-    #     src = pack_lab_into_pixels(src)
+    if args.color_comparison == "LAB":
+        src = pack_lab_into_pixels(src)
 
-    src /= 255
-
-    fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.FLOAT)
+    fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.UNSIGNED_INT8)
 
     # src_buf = cl.image_from_array(ctx, src, 4)  # , norm_int=True)
     src_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
@@ -349,7 +341,30 @@ def main():
             #         start_time,
             #     )
 
-            # TODO: REMOVE
+            # TODO: REMOVE ALL THIS
+            saved_results = save_result(
+                src,
+                queue,
+                dest_buf,
+                width,
+                height,
+                args.output_image_path,
+                args.no_overwriting_output,
+                saved_results,
+                args.saved_image_leading_zero_count,
+                args.color_comparison,
+            )
+
+            print_status(
+                saved_results,
+                python_iteration,
+                args.iterations_in_kernel_per_call,
+                start_time,
+                thread_count,
+            )
+
+            count_colors.count_colors(args.input_image_path, args.output_image_path)
+
             return
 
     except KeyboardInterrupt:
