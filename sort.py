@@ -52,9 +52,9 @@ def print_status(
 
 
 def save_result(
-    src,
+    pixels,
     queue,
-    dest_buf,
+    pixels_buf,
     width,
     height,
     output_image_path,
@@ -64,32 +64,32 @@ def save_result(
     color_comparison,
 ):
     # Copy result back to host
-    dest = np.empty_like(src)
-    cl.enqueue_copy(queue, dest, dest_buf, origin=(0, 0), region=(width, height))
+    saved = np.empty_like(pixels)
+    cl.enqueue_copy(queue, saved, pixels_buf, origin=(0, 0), region=(width, height))
 
     if color_comparison == "LAB":
-        dest = unpack_rgb_from_pixels(dest)
+        saved = unpack_rgb_from_pixels(saved)
 
-    dest = np.round(dest).astype(np.uint8)
+    saved = np.round(saved).astype(np.uint8)
 
     # Convert the array to an image
-    dest_img = Image.fromarray(dest)
+    saved_img = Image.fromarray(saved)
 
     saved_results += 1
 
     # Save the image with/without overwriting the old image
     if no_overwriting_output:
-        dest_img.save(
+        saved_img.save(
             f"{output_image_path.with_suffix('')}_{saved_results:0{saved_image_leading_zero_count}d}{output_image_path.suffix}"
         )
     else:
-        dest_img.save(output_image_path)
+        saved_img.save(output_image_path)
 
     return saved_results
 
 
 def initialize_neighbor_totals_buf(
-    queue, neighbor_totals_buf, src, width, height, kernel_radius
+    queue, neighbor_totals_buf, pixels, width, height, kernel_radius
 ):
     kernel_diameter = kernel_radius * 2 + 1
 
@@ -97,7 +97,7 @@ def initialize_neighbor_totals_buf(
 
     # mode=constant: The input is extended by filling all values beyond the edge with the same constant value, defined by the cval parameter (which is 0 by default).
     # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.convolve.html#scipy.ndimage.convolve
-    neighbor_totals = ndimage.convolve(src, kernel, mode="constant")
+    neighbor_totals = ndimage.convolve(pixels, kernel, mode="constant")
 
     cl.enqueue_copy(
         queue,
@@ -219,26 +219,22 @@ def main():
 
     # Load and convert source image
     # This example code only works with RGBA images
-    src_img = Image.open(args.input_image_path).convert("RGBA")
-    src = np.array(src_img, dtype=np.float32)
+    pixels_img = Image.open(args.input_image_path).convert("RGBA")
+    pixels = np.array(pixels_img, dtype=np.float32)
 
     # Get size of source image
-    height = src.shape[0]
-    width = src.shape[1]
+    height = pixels.shape[0]
+    width = pixels.shape[1]
     # print(f"width: {width}, height: {height}")
 
     # TODO: Remove?
     if args.color_comparison == "LAB":
-        src = pack_lab_into_pixels(src)
+        pixels = pack_lab_into_pixels(pixels)
 
     fmt = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.FLOAT)
 
-    # src_buf = cl.image_from_array(ctx, src, 4)  # , norm_int=True)
-    src_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
-    cl.enqueue_copy(queue, src_buf, src, origin=(0, 0), region=(width, height))
-
-    dest_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
-    cl.enqueue_copy(queue, dest_buf, src, origin=(0, 0), region=(width, height))
+    pixels_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
+    cl.enqueue_copy(queue, pixels_buf, pixels, origin=(0, 0), region=(width, height))
 
     # TODO: The fmt channel_type FLOAT might be lossy with large enough kernels!
     # Make sure to try a huge kernel on big_palette.png, and let count_colors.py do its thing!
@@ -246,7 +242,7 @@ def main():
         ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height)
     )
     initialize_neighbor_totals_buf(
-        queue, neighbor_totals_buf, src, width, height, args.kernel_radius
+        queue, neighbor_totals_buf, pixels, width, height, args.kernel_radius
     )
 
     assert width % 2 == 0, "This program doesn't support images with an odd width"
@@ -270,7 +266,7 @@ def main():
     opencl_sort = prg.sort
 
     # TODO: Fix wrong elephant color count with ITERATIONS_IN_KERNEL_PER_CALL 2
-    # opencl_sort(queue, thread_dimensions, None, src_buf, dest_buf, rand1, rand2)
+    # opencl_sort()
     # save_result()
     # print_status()
 
@@ -280,9 +276,9 @@ def main():
 
             if time.time() > last_printed_time + args.seconds_between_saves:
                 saved_results = save_result(
-                    src,
+                    pixels,
                     queue,
-                    dest_buf,
+                    pixels_buf,
                     width,
                     height,
                     args.output_image_path,
@@ -315,8 +311,8 @@ def main():
                 queue,
                 thread_dimensions,
                 global_local_work_sizes,
-                src_buf,
-                dest_buf,
+                pixels_buf,
+                pixels_buf,
                 neighbor_totals_buf,
                 rand1,
                 rand2,
@@ -324,9 +320,9 @@ def main():
 
     except KeyboardInterrupt:
         saved_results = save_result(
-            src,
+            pixels,
             queue,
-            dest_buf,
+            pixels_buf,
             width,
             height,
             args.output_image_path,
