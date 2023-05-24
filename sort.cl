@@ -83,14 +83,17 @@ float4 get_pixel(
 	return read_imagef(src, sampler, pos);
 }
 
-// TODO:
-// Say one neighbor has an R of 0 and another an R of 8,
-// and the center pixel has an R of 4:
-// Is it problematic that when using with neighbor_totals,
-// it'll seem like the neighbors are identical to the center on average,
-// since (0 + 8) / 2 == 4?
-// (2^2 + 3^2) + (4^2 + 5^2) = 54
-// (6^2 + 8^2) = 100
+// void update_neighbor_total(
+// 	write_only image2d_t neighbor_totals,
+// 	int2 center,
+// 	float4 old_pixel,
+// 	float4 new_pixel
+// ) {
+// 	float4 neighbor_total = -old_pixel + new_pixel;
+
+// 	set_pixel(neighbor_totals, center, neighbor_total);
+// }
+
 void update_neighbor_total(
 	read_only image2d_t src,
 	write_only image2d_t neighbor_totals,
@@ -289,19 +292,6 @@ int2 get_pos(
 	return (int2)(x, y);
 }
 
-void swap(
-	read_only image2d_t src,
-	write_only image2d_t dest,
-	int2 pos1,
-	int2 pos2
-) {
-	float4 pixel1 = get_pixel(src, pos1);
-	float4 pixel2 = get_pixel(src, pos2);
-
-	set_pixel(dest, pos1, pixel2);
-	set_pixel(dest, pos2, pixel1);
-}
-
 int get_shuffled_index(
 	int i,
 	int num_pixels,
@@ -353,15 +343,14 @@ float4 get_averaged_score_pixel(
 bool should_swap(
 	read_only image2d_t src,
 	read_only image2d_t neighbor_totals,
+	float4 pixel1,
+	float4 pixel2,
 	int width,
 	int height,
 	int2 pos1,
 	int2 pos2,
 	int gid
 ) {
-	float4 pixel1 = get_pixel(src, pos1);
-	float4 pixel2 = get_pixel(src, pos2);
-
 	float4 i1_averaged = get_averaged_score_pixel(src, neighbor_totals, width, height, pos1);
 	float i1_old_score = get_squared_color_difference(src, pixel1, i1_averaged);
 	float i1_new_score = get_squared_color_difference(src, pixel2, i1_averaged);
@@ -425,15 +414,21 @@ kernel void sort(
 		int2 pos1 = get_pos(shuffled_i1, width);
 		int2 pos2 = get_pos(shuffled_i2, width);
 
+		float4 pixel1 = get_pixel(src, pos1);
+		float4 pixel2 = get_pixel(src, pos2);
+
 		// printf("i1: %d, i2: %d, shuffled_i1: %d, shuffled_i2: %d, pos1: {%d,%d}, pos2: {%d,%d}", i1, i2, shuffled_i1, shuffled_i2, pos1.x, pos1.y, pos2.x, pos2.y);
 
 		// TODO: Stop unnecessarily passing gid to a bunch of functions!
-		if (should_swap(src, neighbor_totals, width, height, pos1, pos2, gid)) {
-			swap(src, dest, pos1, pos2);
+		if (should_swap(src, neighbor_totals, pixel1, pixel2, width, height, pos1, pos2, gid)) {
+			set_pixel(dest, pos1, pixel2);
+			set_pixel(dest, pos2, pixel1);
 
-			// Copy the dst buffer to the src buffer
-			set_pixel(src, pos1, get_pixel(dest, pos1));
-			set_pixel(src, pos2, get_pixel(dest, pos2));
+			set_pixel(src, pos1, pixel2);
+			set_pixel(src, pos2, pixel1);
+
+			// update_neighbor_total(neighbor_totals, pos1, pixel1, pixel2);
+			// update_neighbor_total(neighbor_totals, pos2, pixel2, pixel1);
 
 			update_neighbor_total(src, neighbor_totals, width, height, pos1, gid);
 			update_neighbor_total(src, neighbor_totals, width, height, pos2, gid);
