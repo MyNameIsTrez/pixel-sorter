@@ -85,13 +85,14 @@ float4 get_pixel(
 
 // void update_neighbor_total(
 // 	write_only image2d_t neighbor_totals,
-// 	int2 center,
+// 	int2 pos,
 // 	float4 old_pixel,
 // 	float4 new_pixel
 // ) {
-// 	float4 neighbor_total = -old_pixel + new_pixel;
+// 	float4 old_neighbor_total = get_pixel(neighbor_totals, pos);
+// 	float4 new_neighbor_total = old_neighbor_total - old_pixel + new_pixel;
 
-// 	set_pixel(neighbor_totals, center, neighbor_total);
+// 	set_pixel(neighbor_totals, pos, new_neighbor_total);
 // }
 
 float4 get_new_neighbor_total(
@@ -427,7 +428,6 @@ kernel void sort(
 
 		float4 new_neighbor_total1;
 		float4 new_neighbor_total2;
-
 		if (should_swap_) {
 			new_neighbor_total1 = get_new_neighbor_total(pixels, neighbor_totals, width, height, pos1, pixel2, gid);
 			new_neighbor_total2 = get_new_neighbor_total(pixels, neighbor_totals, width, height, pos2, pixel1, gid);
