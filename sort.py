@@ -96,8 +96,8 @@ def initialize_neighbor_totals_buf(
     kernel = np.ones((kernel_diameter, kernel_diameter, 4))
 
     # mode=constant: The input is extended by filling all values beyond the edge with the same constant value, defined by the cval parameter (which is 0 by default).
-    # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.convolve.html#scipy.ndimage.convolve
-    neighbor_totals = ndimage.convolve(pixels, kernel, mode="constant")
+    # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.correlate.html#scipy-ndimage-correlate
+    neighbor_totals = ndimage.correlate(pixels, kernel, mode="constant")
 
     cl.enqueue_copy(
         queue,
