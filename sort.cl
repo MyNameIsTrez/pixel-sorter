@@ -94,15 +94,18 @@ float4 get_pixel(
 // 	set_pixel(neighbor_totals, center, neighbor_total);
 // }
 
-void update_neighbor_total(
+float4 get_new_neighbor_total(
 	read_only image2d_t src,
 	write_only image2d_t neighbor_totals,
 	int width,
 	int height,
 	int2 center,
+	float4 new_center_pixel,
 	int gid
 ) {
 	float4 neighbor_total = 0;
+
+	neighbor_total += new_center_pixel;
 
 	int dy_min = -min(center.y, KERNEL_RADIUS);
 	int dy_max = min(height - 1 - center.y, KERNEL_RADIUS);
@@ -115,7 +118,8 @@ void update_neighbor_total(
 
 			int2 neighbor = (int2){center.x + dx, center.y + dy};
 
-			if (neighbor.x < 0 || neighbor.x >= width
+			if ((dx == 0 && dy == 0)
+			|| neighbor.x < 0 || neighbor.x >= width
 			|| neighbor.y < 0 || neighbor.y >= height) {
 				continue;
 			}
@@ -143,7 +147,7 @@ void update_neighbor_total(
 	// 	printf("score: %d\n", score);
 	// }
 
-	set_pixel(neighbor_totals, center, neighbor_total);
+	return neighbor_total;
 }
 
 u64 round_up_to_power_of_2(
@@ -420,7 +424,22 @@ kernel void sort(
 		// printf("i1: %d, i2: %d, shuffled_i1: %d, shuffled_i2: %d, pos1: {%d,%d}, pos2: {%d,%d}", i1, i2, shuffled_i1, shuffled_i2, pos1.x, pos1.y, pos2.x, pos2.y);
 
 		// TODO: Stop unnecessarily passing gid to a bunch of functions!
-		if (should_swap(src, neighbor_totals, pixel1, pixel2, width, height, pos1, pos2, gid)) {
+		bool should_swap_ = should_swap(src, neighbor_totals, pixel1, pixel2, width, height, pos1, pos2, gid);
+
+		float4 new_neighbor_total1;
+		float4 new_neighbor_total2;
+
+		if (should_swap_) {
+			new_neighbor_total1 = get_new_neighbor_total(src, neighbor_totals, width, height, pos1, pixel2, gid);
+			new_neighbor_total2 = get_new_neighbor_total(src, neighbor_totals, width, height, pos2, pixel1, gid);
+		}
+
+		// TODO: Not sure which of these two flags I should use,
+		// cause either seems to work.
+		// TODO: Not sure if this barrier is still necessary
+		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
+		if (should_swap_) {
 			set_pixel(dest, pos1, pixel2);
 			set_pixel(dest, pos2, pixel1);
 
@@ -430,15 +449,12 @@ kernel void sort(
 			// update_neighbor_total(neighbor_totals, pos1, pixel1, pixel2);
 			// update_neighbor_total(neighbor_totals, pos2, pixel2, pixel1);
 
-			update_neighbor_total(src, neighbor_totals, width, height, pos1, gid);
-			update_neighbor_total(src, neighbor_totals, width, height, pos2, gid);
+			set_pixel(neighbor_totals, pos1, new_neighbor_total1);
+			set_pixel(neighbor_totals, pos2, new_neighbor_total2);
 
 			// taken++;
 		}
 
-		// TODO: Not sure which of these two flags I should use,
-		// cause either seems to work.
-		// TODO: Not sure if this barrier is still necessary
 		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
 		// not_taken++;
