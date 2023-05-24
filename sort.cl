@@ -17,6 +17,132 @@ enum SHUFFLE_MODES {
 typedef uint u32;
 typedef ulong u64;
 
+void set_pixel(
+	write_only image2d_t dest,
+	int2 pos,
+	float4 pixel
+) {
+	write_imagef(dest, pos, pixel);
+}
+
+float get_squared_color_difference(
+	read_only image2d_t src,
+	float4 pixel,
+	float4 neighbor_pixel
+) {
+	float r_diff = pixel.x - neighbor_pixel.x;
+	float g_diff = pixel.y - neighbor_pixel.y;
+	float b_diff = pixel.z - neighbor_pixel.z;
+
+	return (
+		r_diff * r_diff +
+		g_diff * g_diff +
+		b_diff * b_diff
+	);
+}
+
+float get_neighbor_score_distanceless(
+	read_only image2d_t src,
+	float4 pixel,
+	float4 neighbor_pixel
+) {
+	return get_squared_color_difference(src, pixel, neighbor_pixel);
+}
+
+float get_neighbor_score_with_distance(
+	read_only image2d_t src,
+	float4 pixel,
+	float4 neighbor_pixel,
+	int dx,
+	int dy
+) {
+	// TODO: Not sure whether squared_color_difference is a good idea?
+	// The advantage of it is that it fixes the issues on palette.png
+	// with a KERNEL_RADIUS of 15 where none of the pixels get moved.
+	// I think it can work if it's tuned a bit more to be less aggressive?
+
+	float squared_color_difference = get_squared_color_difference(src, pixel, neighbor_pixel);
+
+	int distance_squared = dx * dx + dy * dy;
+
+	return squared_color_difference / distance_squared;
+}
+
+float4 get_pixel(
+	read_only image2d_t src,
+	int2 pos
+) {
+	// CLK_NORMALIZED_COORDS_FALSE means the x and y coordinates won't be normalized to between 0 and 1
+	// CLK_ADDRESS_CLAMP_TO_EDGE means the x and y coordinates are clamped to be within the image's size
+	// CLK_FILTER_NEAREST means not having any pixel neighbor interpolation occur
+	// Sources:
+	// https://man.opencl.org/sampler_t.html
+	// https://registry.khronos.org/OpenCL/specs/opencl-1.1.pdf
+	sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+
+	return read_imagef(src, sampler, pos);
+}
+
+// TODO:
+// Say one neighbor has an R of 0 and another an R of 8,
+// and the center pixel has an R of 4:
+// Is it problematic that when using with neighbor_totals,
+// it'll seem like the neighbors are identical to the center on average,
+// since (0 + 8) / 2 == 4?
+// (2^2 + 3^2) + (4^2 + 5^2) = 54
+// (6^2 + 8^2) = 100
+void update_neighbor_total(
+	read_only image2d_t src,
+	write_only image2d_t neighbor_totals,
+	int width,
+	int height,
+	int2 center,
+	int gid
+) {
+	float4 neighbor_total = 0;
+
+	int dy_min = -min(center.y, KERNEL_RADIUS);
+	int dy_max = min(height - 1 - center.y, KERNEL_RADIUS);
+
+	int dx_min = -min(center.x, KERNEL_RADIUS);
+	int dx_max = min(width - 1 - center.x, KERNEL_RADIUS);
+
+	for (int dy = dy_min; dy <= dy_max; dy++) {
+		for (int dx = dx_min; dx <= dx_max; dx++) {
+
+			int2 neighbor = (int2){center.x + dx, center.y + dy};
+
+			if (neighbor.x < 0 || neighbor.x >= width
+			|| neighbor.y < 0 || neighbor.y >= height) {
+				continue;
+			}
+
+			float4 neighbor_pixel = get_pixel(src, neighbor);
+
+			neighbor_total += neighbor_pixel;
+
+			// TODO: Maybe make switching between these two an argparse thing?
+			// score += get_neighbor_score_distanceless(src, pixel, neighbor_pixel);
+			// score += get_neighbor_score_with_distance(src, pixel, neighbor_pixel, dx, dy);
+
+			// printf("center: {%d,%d}, neighbor: {%d,%d}, dims: {%d,%d}\n", center.x, center.y, neighbor.x, neighbor.y, width, height);
+
+			// printf("squared_color_difference: %d, distance_squared: %d, squared_color_difference / distance_squared: %d, score: %d\n", squared_color_difference, distance_squared, squared_color_difference / distance_squared, score);
+
+			// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
+			// if (gid == 1 && center.x == 1 && center.y == 0 && pixel.x == 150) {
+			// 	printf("gid: %d, neighbor: {%d,%d}, score: %d, dims: {%d,%d}, pixel: {%d,%d,%d}, neighbor_pixel: {%d,%d,%d}\n", gid, neighbor.x, neighbor.y, score, width, height, pixel.x, pixel.y, pixel.z, neighbor_pixel.x, neighbor_pixel.y, neighbor_pixel.z);
+			// }
+		}
+	}
+
+	// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
+	// 	printf("score: %d\n", score);
+	// }
+
+	set_pixel(neighbor_totals, center, neighbor_total);
+}
+
 u64 round_up_to_power_of_2(
 	u64 a
 ) {
@@ -112,6 +238,7 @@ u64 get_cipher_bits(u64 capacity)
 	return max(i, convert_ulong(4));
 }
 
+// Source: https://github.com/djns99/CUDA-Shuffle/blob/master/include/shuffle/PhiloxShuffle.h
 u64 philox(
 	u64 capacity,
 	u64 val,
@@ -151,29 +278,6 @@ u64 philox(
 
 	// Combine the left and right sides together to get result
 	return convert_ulong(state[0]) << right_side_bits | convert_ulong(state[1]);
-}
-
-float4 get_pixel(
-	read_only image2d_t src,
-	int2 pos
-) {
-	// CLK_NORMALIZED_COORDS_FALSE means the x and y coordinates won't be normalized to between 0 and 1
-	// CLK_ADDRESS_CLAMP_TO_EDGE means the x and y coordinates are clamped to be within the image's size
-	// CLK_FILTER_NEAREST means not having any pixel neighbor interpolation occur
-	// Sources:
-	// https://man.opencl.org/sampler_t.html
-	// https://registry.khronos.org/OpenCL/specs/opencl-1.1.pdf
-	sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-
-	return read_imagef(src, sampler, pos);
-}
-
-void set_pixel(
-	write_only image2d_t dest,
-	int2 pos,
-	float4 pixel
-) {
-	write_imagef(dest, pos, pixel);
 }
 
 int2 get_pos(
@@ -224,103 +328,31 @@ int get_shuffled_index(
 	return shuffled;
 }
 
-float get_squared_color_difference(
+float4 get_averaged_score_pixel(
 	read_only image2d_t src,
-	float4 pixel,
-	float4 neighbor_pixel
-) {
-	float r_diff = pixel.x - neighbor_pixel.x;
-	float g_diff = pixel.y - neighbor_pixel.y;
-	float b_diff = pixel.z - neighbor_pixel.z;
-
-	return (
-		r_diff * r_diff +
-		g_diff * g_diff +
-		b_diff * b_diff
-	);
-}
-
-float get_neighbor_score_distanceless(
-	read_only image2d_t src,
-	float4 pixel,
-	float4 neighbor_pixel
-) {
-	return get_squared_color_difference(src, pixel, neighbor_pixel);
-}
-
-float get_neighbor_score_with_distance(
-	read_only image2d_t src,
-	float4 pixel,
-	float4 neighbor_pixel,
-	int dx,
-	int dy
-) {
-	// TODO: Not sure whether squared_color_difference is a good idea?
-	// The advantage of it is that it fixes the issues on palette.png
-	// with a KERNEL_RADIUS of 15 where none of the pixels get moved.
-	// I think it can work if it's tuned a bit more to be less aggressive?
-
-	float squared_color_difference = get_squared_color_difference(src, pixel, neighbor_pixel);
-
-	int distance_squared = dx * dx + dy * dy;
-
-	return squared_color_difference / distance_squared;
-}
-
-float get_score(
-	read_only image2d_t src,
+	read_only image2d_t neighbor_totals,
 	int width,
 	int height,
-	int2 center,
-	float4 pixel,
-	int gid
+	int2 pos
 ) {
-	float score = 0;
+	float4 score = get_pixel(neighbor_totals, pos);
 
-	int dy_min = -min(center.y, KERNEL_RADIUS);
-	int dy_max = min(height - 1 - center.y, KERNEL_RADIUS);
+	int above = min(pos.y, KERNEL_RADIUS);
+	int below = min(height - 1 - pos.y, KERNEL_RADIUS);
 
-	int dx_min = -min(center.x, KERNEL_RADIUS);
-	int dx_max = min(width - 1 - center.x, KERNEL_RADIUS);
+	int left = min(pos.x, KERNEL_RADIUS);
+	int right = min(width - 1 - pos.x, KERNEL_RADIUS);
 
-	for (int dy = dy_min; dy <= dy_max; dy++) {
-		for (int dx = dx_min; dx <= dx_max; dx++) {
+	// Deliberately not doing - 1 at the end,
+	// since the center pixel's color was also added to the score.
+	int kernel_area = (above + 1 + below) * (left + 1 + right);
 
-			int2 neighbor = (int2){center.x + dx, center.y + dy};
-
-			if ((dx == 0 && dy == 0)
-			|| neighbor.x < 0 || neighbor.x >= width
-			|| neighbor.y < 0 || neighbor.y >= height) {
-				continue;
-			}
-
-			float4 neighbor_pixel = get_pixel(src, neighbor);
-
-			// TODO: Maybe make switching between these two an argparse thing?
-			// score += get_neighbor_score_distanceless(src, pixel, neighbor_pixel);
-			score += get_neighbor_score_with_distance(src, pixel, neighbor_pixel, dx, dy);
-
-
-			// printf("center: {%d,%d}, neighbor: {%d,%d}, dims: {%d,%d}\n", center.x, center.y, neighbor.x, neighbor.y, width, height);
-
-			// printf("squared_color_difference: %d, distance_squared: %d, squared_color_difference / distance_squared: %d, score: %d\n", squared_color_difference, distance_squared, squared_color_difference / distance_squared, score);
-
-			// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
-			// if (gid == 1 && center.x == 1 && center.y == 0 && pixel.x == 150) {
-			// 	printf("gid: %d, neighbor: {%d,%d}, score: %d, dims: {%d,%d}, pixel: {%d,%d,%d}, neighbor_pixel: {%d,%d,%d}\n", gid, neighbor.x, neighbor.y, score, width, height, pixel.x, pixel.y, pixel.z, neighbor_pixel.x, neighbor_pixel.y, neighbor_pixel.z);
-			// }
-		}
-	}
-
-	// if (gid == 1 && center.x == 3 && center.y == 1 && pixel.x == 150) {
-	// 	printf("score: %d\n", score);
-	// }
-
-	return score;
+	return score / kernel_area;
 }
 
 bool should_swap(
 	read_only image2d_t src,
+	read_only image2d_t neighbor_totals,
 	int width,
 	int height,
 	int2 pos1,
@@ -330,12 +362,14 @@ bool should_swap(
 	float4 pixel1 = get_pixel(src, pos1);
 	float4 pixel2 = get_pixel(src, pos2);
 
-	float i1_old_score = get_score(src, width, height, pos1, pixel1, gid);
-	float i1_new_score = get_score(src, width, height, pos1, pixel2, gid);
+	float4 i1_averaged = get_averaged_score_pixel(src, neighbor_totals, width, height, pos1);
+	float i1_old_score = get_squared_color_difference(src, pixel1, i1_averaged);
+	float i1_new_score = get_squared_color_difference(src, pixel2, i1_averaged);
 	float i1_score_difference = -i1_old_score + i1_new_score;
 
-	float i2_old_score = get_score(src, width, height, pos2, pixel2, gid);
-	float i2_new_score = get_score(src, width, height, pos2, pixel1, gid);
+	float4 i2_averaged = get_averaged_score_pixel(src, neighbor_totals, width, height, pos2);
+	float i2_old_score = get_squared_color_difference(src, pixel2, i2_averaged);
+	float i2_new_score = get_squared_color_difference(src, pixel1, i2_averaged);
 	float i2_score_difference = -i2_old_score + i2_new_score;
 
 	float score_difference = i1_score_difference + i2_score_difference;
@@ -358,6 +392,7 @@ bool should_swap(
 kernel void sort(
 	read_only image2d_t src,
 	write_only image2d_t dest,
+	write_only image2d_t neighbor_totals,
 	u32 rand1,
 	u32 rand2
 ) {
@@ -393,12 +428,15 @@ kernel void sort(
 		// printf("i1: %d, i2: %d, shuffled_i1: %d, shuffled_i2: %d, pos1: {%d,%d}, pos2: {%d,%d}", i1, i2, shuffled_i1, shuffled_i2, pos1.x, pos1.y, pos2.x, pos2.y);
 
 		// TODO: Stop unnecessarily passing gid to a bunch of functions!
-		if (should_swap(src, width, height, pos1, pos2, gid)) {
+		if (should_swap(src, neighbor_totals, width, height, pos1, pos2, gid)) {
 			swap(src, dest, pos1, pos2);
 
 			// Copy the dst buffer to the src buffer
 			set_pixel(src, pos1, get_pixel(dest, pos1));
 			set_pixel(src, pos2, get_pixel(dest, pos2));
+
+			update_neighbor_total(src, neighbor_totals, width, height, pos1, gid);
+			update_neighbor_total(src, neighbor_totals, width, height, pos2, gid);
 
 			// taken++;
 		}

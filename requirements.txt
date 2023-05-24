@@ -2,3 +2,4 @@ numpy==1.23.4
 pyopencl==2023.1
 humanize==4.6.0
 scikit-image==0.20.0
+scipy==1.10.1

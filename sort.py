@@ -7,6 +7,7 @@ import humanize
 import numpy as np
 import pyopencl as cl
 from PIL import Image
+from scipy import ndimage
 from skimage import color
 
 import count_colors
@@ -85,6 +86,26 @@ def save_result(
         dest_img.save(output_image_path)
 
     return saved_results
+
+
+def initialize_neighbor_totals_buf(
+    queue, neighbor_totals_buf, src, width, height, kernel_radius
+):
+    kernel_diameter = kernel_radius * 2 + 1
+
+    kernel = np.ones((kernel_diameter, kernel_diameter, 4))
+
+    # mode=constant: The input is extended by filling all values beyond the edge with the same constant value, defined by the cval parameter (which is 0 by default).
+    # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.convolve.html#scipy.ndimage.convolve
+    neighbor_totals = ndimage.convolve(src, kernel, mode="constant")
+
+    cl.enqueue_copy(
+        queue,
+        neighbor_totals_buf,
+        neighbor_totals,
+        origin=(0, 0),
+        region=(width, height),
+    )
 
 
 def get_opencl_code(iterations_in_kernel_per_call, kernel_radius, shuffle_mode):
@@ -216,9 +237,17 @@ def main():
     src_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
     cl.enqueue_copy(queue, src_buf, src, origin=(0, 0), region=(width, height))
 
-    # TODO: Try to make this WRITE_ONLY again for optimization purposes?
     dest_buf = cl.Image(ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height))
     cl.enqueue_copy(queue, dest_buf, src, origin=(0, 0), region=(width, height))
+
+    # TODO: The fmt channel_type FLOAT might be lossy with large enough kernels!
+    # Make sure to try a huge kernel on big_palette.png, and let count_colors.py do its thing!
+    neighbor_totals_buf = cl.Image(
+        ctx, cl.mem_flags.READ_WRITE, fmt, shape=(width, height)
+    )
+    initialize_neighbor_totals_buf(
+        queue, neighbor_totals_buf, src, width, height, args.kernel_radius
+    )
 
     assert width % 2 == 0, "This program doesn't support images with an odd width"
 
@@ -288,6 +317,7 @@ def main():
                 global_local_work_sizes,
                 src_buf,
                 dest_buf,
+                neighbor_totals_buf,
                 rand1,
                 rand2,
             ).wait()
