@@ -312,7 +312,6 @@ def main():
                 thread_dimensions,
                 global_local_work_sizes,
                 pixels_buf,
-                pixels_buf,
                 neighbor_totals_buf,
                 rand1,
                 rand2,
