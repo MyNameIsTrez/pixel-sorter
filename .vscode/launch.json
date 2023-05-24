@@ -1,0 +1,51 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "sort",
+			"type": "python",
+			"request": "launch",
+			"program": "sort.py",
+			"args": [
+				// "input/tiny.png",
+				// "output/tiny.png",
+				// "input/tiny2.png",
+				// "output/tiny2.png",
+				// "input/palette.png",
+				// "output/palette.png",
+				"input/elephant.png",
+				"output/elephant.png",
+				// "input/big_palette.png",
+				// "output/big_palette.png",
+				// "--iterations-in-kernel-per-call",
+				// "1",
+				"--seconds-between-saves",
+				"10",
+				"--kernel-radius",
+				"5",
+				// "--shuffle-mode",
+				// "LCG",
+				// "--no-overwriting-output",
+				"--saved-image-leading-zero-count",
+				"4",
+				// "--color-comparison",
+				// "RGB",
+			],
+			"justMyCode": false
+		},
+		{
+			"name": "count colors",
+			"type": "python",
+			"request": "launch",
+			"program": "count_colors.py",
+			"args": [
+				"input/elephant.png",
+				"output/elephant.png",
+			],
+			"justMyCode": false
+		},
+	]
+}

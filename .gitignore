@@ -1,5 +1,6 @@
 *
 !*/
+!.vscode/launch.json
 !input/**/*
 !media/**/*
 !**/.placeholder
