@@ -65,7 +65,9 @@ def save_result(
 ):
     # Copy result back to host
     saved = np.empty_like(pixels)
-    cl.enqueue_copy(queue, saved, pixels_buf, origin=(0, 0), region=(width, height))
+    cl.enqueue_copy(
+        queue, saved, pixels_buf, origin=(0, 0), region=(width, height)
+    ).wait()
 
     if color_comparison == "LAB":
         saved = unpack_rgb_from_pixels(saved)
@@ -86,6 +88,22 @@ def save_result(
         saved_img.save(output_image_path)
 
     return saved_results
+
+
+def initialize_neighbor_totals_buf(
+    queue, neighbor_totals_buf, pixels, width, height, kernel
+):
+    # mode=constant: The input is extended by filling all values beyond the edge with the same constant value, defined by the cval parameter (which is 0 by default).
+    # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.correlate.html#scipy-ndimage-correlate
+    neighbor_totals = ndimage.correlate(pixels, kernel, mode="constant")
+
+    cl.enqueue_copy(
+        queue,
+        neighbor_totals_buf,
+        neighbor_totals,
+        origin=(0, 0),
+        region=(width, height),
+    ).wait()
 
 
 def get_kernel(kernel_radius):
@@ -112,22 +130,6 @@ def get_kernel(kernel_radius):
     # print(kernel)
 
     return kernel
-
-
-def initialize_neighbor_totals_buf(
-    queue, neighbor_totals_buf, pixels, width, height, kernel
-):
-    # mode=constant: The input is extended by filling all values beyond the edge with the same constant value, defined by the cval parameter (which is 0 by default).
-    # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.correlate.html#scipy-ndimage-correlate
-    neighbor_totals = ndimage.correlate(pixels, kernel, mode="constant")
-
-    cl.enqueue_copy(
-        queue,
-        neighbor_totals_buf,
-        neighbor_totals,
-        origin=(0, 0),
-        region=(width, height),
-    )
 
 
 def get_opencl_code(iterations_in_kernel_per_call, kernel_radius, shuffle_mode):
@@ -258,7 +260,9 @@ def main():
     pixels_buf = cl.Image(
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
-    cl.enqueue_copy(queue, pixels_buf, pixels, origin=(0, 0), region=(width, height))
+    cl.enqueue_copy(
+        queue, pixels_buf, pixels, origin=(0, 0), region=(width, height)
+    ).wait()
 
     kernel = get_kernel(args.kernel_radius)
 
@@ -270,6 +274,12 @@ def main():
     initialize_neighbor_totals_buf(
         queue, neighbor_totals_buf, pixels, width, height, kernel
     )
+
+    updated_buf = cl.Image(
+        ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
+    )
+
+    zeros_updated = np.zeros((width, height, 4))
 
     assert width % 2 == 0, "This program doesn't support images with an odd width"
 
@@ -329,6 +339,14 @@ def main():
 
             # TODO: Why does removing the wait() suddenly fix tiny.png wrong count issues??
 
+            cl.enqueue_copy(
+                queue,
+                updated_buf,
+                zeros_updated,
+                origin=(0, 0),
+                region=(width, height),
+            ).wait()
+
             # The .wait() at the end of this line is crucial!
             # The reason being that the OpenCL kernel call is async,
             # so without it you end up being unable to use Ctrl+C
@@ -339,6 +357,7 @@ def main():
                 global_local_work_sizes,
                 pixels_buf,
                 neighbor_totals_buf,
+                updated_buf,
                 rand1,
                 rand2,
             ).wait()
