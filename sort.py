@@ -279,8 +279,6 @@ def main():
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
 
-    zeros_updated = np.zeros((width, height, 4))
-
     assert width % 2 == 0, "This program doesn't support images with an odd width"
 
     thread_count = int(width / 2) * height
@@ -338,14 +336,6 @@ def main():
             rand1 = np.uint32(rand1 + 1)
 
             # TODO: Why does removing the wait() suddenly fix tiny.png wrong count issues??
-
-            cl.enqueue_copy(
-                queue,
-                updated_buf,
-                zeros_updated,
-                origin=(0, 0),
-                region=(width, height),
-            ).wait()
 
             # The .wait() at the end of this line is crucial!
             # The reason being that the OpenCL kernel call is async,

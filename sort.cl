@@ -441,6 +441,11 @@ kernel void sort(
 		int2 pos1 = get_pos(shuffled_i1, width);
 		int2 pos2 = get_pos(shuffled_i2, width);
 
+		set_pixel(updated, pos1, 0);
+		set_pixel(updated, pos2, 0);
+
+		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+
 		float4 pixel1 = get_pixel(pixels, pos1);
 		float4 pixel2 = get_pixel(pixels, pos2);
 
