@@ -96,10 +96,10 @@ void update_neighbor_total(
 				continue;
 			}
 
-            // int distance_squared = dx * dx + dy * dy;
-			// if (distance_squared > KERNEL_RADIUS_SQUARED) {
-			// 	continue;
-			// }
+            int distance_squared = dx * dx + dy * dy;
+			if (distance_squared > KERNEL_RADIUS_SQUARED) {
+				continue;
+			}
 
 			float4 neighbor_pixel = get_pixel(pixels, neighbor);
 
@@ -322,10 +322,10 @@ float4 get_averaged_score_pixel(
 				continue;
 			}
 
-            // int distance_squared = dx * dx + dy * dy;
-			// if (distance_squared > KERNEL_RADIUS_SQUARED) {
-			// 	continue;
-			// }
+            int distance_squared = dx * dx + dy * dy;
+			if (distance_squared > KERNEL_RADIUS_SQUARED) {
+				continue;
+			}
 
 			kernel_area++;
 		}

@@ -98,9 +98,9 @@ def get_kernel(kernel_radius):
     # Create kernel
     for dy in range(-kernel_radius, kernel_radius + 1):
         for dx in range(-kernel_radius, kernel_radius + 1):
-            # distance_squared = dx * dx + dy * dy
-            # if distance_squared > kernel_radius_squared:
-            #     continue
+            distance_squared = dx * dx + dy * dy
+            if distance_squared > kernel_radius_squared:
+                continue
 
             x = kernel_radius + dx
             y = kernel_radius + dy
