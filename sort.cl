@@ -312,6 +312,7 @@ float4 get_averaged_score_pixel(
 	int dx_min = -min(center.x, KERNEL_RADIUS);
 	int dx_max = min(width - 1 - center.x, KERNEL_RADIUS);
 
+	// TODO: See if caching this in an image is faster
 	for (int dy = dy_min; dy <= dy_max; dy++) {
 		for (int dx = dx_min; dx <= dx_max; dx++) {
 
@@ -429,15 +430,14 @@ kernel void sort(
 		if (should_swap_) {
 			set_pixel(pixels, pos1, pixel2);
 			set_pixel(pixels, pos2, pixel1);
-
 		}
 
 		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
-		if (should_swap_) {
+		// if (should_swap_) {
 			update_neighbor_total(pixels, neighbor_totals, width, height, pos1, gid);
 			update_neighbor_total(pixels, neighbor_totals, width, height, pos2, gid);
-		}
+		// }
 
 		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 	}
