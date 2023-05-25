@@ -39,15 +39,27 @@ def pack_lab_into_pixels(pixels):
 
 def print_status(
     saved_results,
+    prev_python_iteration,
     python_iteration,
     iterations_in_kernel_per_call,
     start_time,
     thread_count,
 ):
+    prev_iteration = (prev_python_iteration + 1) * iterations_in_kernel_per_call
     iteration = (python_iteration + 1) * iterations_in_kernel_per_call
 
+    prev_attempted_swaps = prev_iteration * thread_count
+    attempted_swaps = iteration * thread_count
+
+    attempted_swaps_difference = attempted_swaps - prev_attempted_swaps
+
     print(
-        f"Frame {saved_results}, {time.time() - start_time:.1f} seconds, iteration {iteration:.0f} ({python_iteration + 1:.0f} * {iterations_in_kernel_per_call:.0f}), {humanize.intword(iteration * thread_count)} attempted swaps"
+        f"Frame {saved_results}"
+        f", {humanize.precisedelta(time.time() - start_time)}"
+        f", iteration {iteration:.0f}"
+        f" ({python_iteration + 1:.0f} * {iterations_in_kernel_per_call:.0f})"
+        f", {humanize.intword(attempted_swaps, '%.3f')} attempted swaps"
+        f" ({humanize.intword(attempted_swaps_difference, '%+.3f')})"
     )
 
 
@@ -292,6 +304,7 @@ def main():
     rand2 = np.uint32(69696969)
 
     python_iteration = 0
+    prev_python_iteration = 0
 
     saved_results = 0
 
@@ -324,6 +337,7 @@ def main():
 
                 print_status(
                     saved_results,
+                    prev_python_iteration,
                     python_iteration,
                     args.iterations_in_kernel_per_call,
                     start_time,
@@ -331,6 +345,7 @@ def main():
                 )
 
                 last_printed_time = time.time()
+                prev_python_iteration = python_iteration
 
             # Numpy handles unsigned wraparound for us
             rand1 = np.uint32(rand1 + 1)
@@ -368,6 +383,7 @@ def main():
 
         print_status(
             saved_results,
+            prev_python_iteration,
             python_iteration,
             args.iterations_in_kernel_per_call,
             start_time,
