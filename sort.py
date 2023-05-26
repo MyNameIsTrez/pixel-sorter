@@ -105,10 +105,12 @@ def save_result(
 def initialize_neighbor_totals_buf(
     queue, neighbor_totals_buf, pixels, width, height, kernel
 ):
+    print("Running ndimage.correlate(pixels, kernel)...")
     # mode=constant: The input is extended by filling all values beyond the edge with the same constant value, defined by the cval parameter (which is 0 by default).
     # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.correlate.html#scipy-ndimage-correlate
     neighbor_totals = ndimage.correlate(pixels, kernel, mode="constant")
 
+    print("Copying neighbor_totals to neighbor_totals_buf...")
     cl.enqueue_copy(
         queue,
         neighbor_totals_buf,
@@ -227,6 +229,7 @@ def add_parser_arguments(parser):
 def main():
     start_time = time.time()
 
+    print("Setting up argument parser...")
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -238,14 +241,14 @@ def main():
             "PHILOX is broken, creating shuffle collisions, so use LCG for now"
         )
 
-    # Initialize OpenCL
+    print("Initializing OpenCL...")
     os.environ["PYOPENCL_CTX"] = "0"
     os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
     ctx = cl.create_some_context()
     queue = cl.CommandQueue(ctx)
 
+    print("Building sort.cl...")
     # TODO: Try to find useful optimization flags
-    # Load and build OpenCL function
     prg = cl.Program(
         ctx,
         get_opencl_code(
@@ -253,7 +256,7 @@ def main():
         ),
     ).build(options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1")
 
-    # Load and convert source image
+    print("Loading input image...")
     # This example code only works with RGBA images
     pixels_img = Image.open(args.input_image_path).convert("RGBA")
     pixels = np.array(pixels_img, dtype=np.float32)
@@ -261,14 +264,14 @@ def main():
     # Get size of source image
     height = pixels.shape[0]
     width = pixels.shape[1]
-    # print(f"width: {width}, height: {height}")
 
-    # TODO: Remove?
+    print("Packing LAB colors into input image pixels...")
     if args.color_comparison == "LAB":
         pixels = pack_lab_into_pixels(pixels)
 
     rgba_format = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.FLOAT)
 
+    print("Creating pixels_buf for sort.cl...")
     pixels_buf = cl.Image(
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
@@ -276,6 +279,7 @@ def main():
         queue, pixels_buf, pixels, origin=(0, 0), region=(width, height)
     ).wait()
 
+    print("Creating image kernel...")
     kernel = get_kernel(args.kernel_radius)
 
     # TODO: The rgba_format channel_type FLOAT might be lossy with large enough kernels!
@@ -287,6 +291,7 @@ def main():
         queue, neighbor_totals_buf, pixels, width, height, kernel
     )
 
+    print("Creating updated_buf for sort.cl...")
     updated_buf = cl.Image(
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
@@ -317,6 +322,7 @@ def main():
     # save_result()
     # print_status()
 
+    print("Running sort.cl...")
     try:
         while True:
             python_iteration += 1
