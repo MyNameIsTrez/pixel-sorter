@@ -138,7 +138,7 @@ def get_kernel(kernel_radius):
             y = kernel_radius + dy
 
             # TODO: Not sure if it should be x, y instead?
-            # kernel[y, x] = 1 / distance_squared
+            # kernel[y, x] = 1 / (distance_squared + 1)
             kernel[y, x] = 1
 
     # print(kernel)

@@ -135,6 +135,7 @@ void update_neighbor_total(
 
 			float4 neighbor_pixel = get_pixel(pixels, neighbor);
 
+			// neighbor_total += neighbor_pixel / (distance_squared + 1);
 			neighbor_total += neighbor_pixel;
 
 			// printf("center: {%d,%d}, neighbor: {%d,%d}, dims: {%d,%d}\n", center.x, center.y, neighbor.x, neighbor.y, width, height);
@@ -360,6 +361,7 @@ float4 get_averaged_score_pixel(
 				continue;
 			}
 
+			// kernel_area += 1 / (distance_squared + 1);
 			kernel_area++;
 		}
 	}
