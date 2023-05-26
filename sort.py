@@ -298,12 +298,28 @@ def main():
 
     assert width % 2 == 0, "This program doesn't support images with an odd width"
 
-    thread_count = int(width / 2) * height
-    thread_dimensions = (thread_count, 1)
+    # How many work-items to have (one for every pair of pixels).
+    pair_count = int(width / 2)
+    thread_count = pair_count * height
+    global_size = (thread_count, 1)
 
-    # TODO: What does setting global_local_work_sizes to None do?
-    # TODO: Do I want to customize it?
-    global_local_work_sizes = None
+    # Work groups have to be able to exactly consume all work-items, with no leftovers
+    local_size_thread_count = 8
+    while thread_count % local_size_thread_count != 0:
+        local_size_thread_count -= 2
+
+    # How many work-items to put in a work-group, i.e. how to partition work-items.
+    # Items in a work-group can work together, e.g. they can share fast local memory.
+    # Because the global size is partitioned with the local size into groups,
+    # both must have the same dimension, e.g. g.s=(1,10) and l.s=(1,2) gives 5 groups.
+    # If you don't care about work-groups, just put None.
+    # Source is Harry's comment below this answer: https://stackoverflow.com/a/50373589/13279557
+    #
+    # Setting this to None to go would mean an implementation-defined workgroups size would be used,
+    # which crashes your GPU after a few minutes when input/all_colors_shuffled.png is the input
+    # when a huge kernel_size is used (30 on my GPU).
+    # Source: https://stackoverflow.com/a/25443544/13279557
+    local_size = (local_size_thread_count, 1)
 
     rand1 = np.uint32(42424242)
     rand2 = np.uint32(69696969)
@@ -362,10 +378,12 @@ def main():
             # The reason being that the OpenCL kernel call is async,
             # so without it you end up being unable to use Ctrl+C
             # to stop the program!
+            # Here's the documentation of all the arguments:
+            # https://documen.tician.de/pyopencl/runtime_program.html#pyopencl.Kernel.__call__
             opencl_sort(
                 queue,
-                thread_dimensions,
-                global_local_work_sizes,
+                global_size,
+                local_size,
                 pixels_buf,
                 neighbor_totals_buf,
                 updated_buf,
