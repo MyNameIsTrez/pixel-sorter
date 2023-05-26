@@ -224,6 +224,13 @@ def add_parser_arguments(parser):
         default="LAB",
         help="The color space in which pixels are compared: LAB mimics how the human eye percieves color, while RGB is easier to implement",
     )
+    parser.add_argument(
+        "-w",
+        "--workgroup-size",
+        type=int,
+        default=8,
+        help="The workgroup size; the actually used workgroup size can be lower, and will be printed",
+    )
 
 
 def main():
@@ -265,6 +272,25 @@ def main():
     height = pixels.shape[0]
     width = pixels.shape[1]
 
+    assert width % 2 == 0, "This program doesn't support images with an odd width"
+
+    # How many work-items to have (one for every pair of pixels).
+    pair_count = int(width / 2)
+    thread_count = pair_count * height
+    global_size = (thread_count, 1)
+
+    # Work groups have to be able to exactly consume all work-items, with no leftovers
+    workgroup_size = args.workgroup_size
+
+    while thread_count % workgroup_size != 0:
+        workgroup_size -= 1
+
+    # Don't allow the workgroup_size to be odd
+    # if workgroup_size % 2 == 1:
+    #     workgroup_size -= 1
+
+    print(f"Using workgroup-size {workgroup_size}")
+
     print("Packing LAB colors into input image pixels...")
     if args.color_comparison == "LAB":
         pixels = pack_lab_into_pixels(pixels)
@@ -296,18 +322,6 @@ def main():
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
 
-    assert width % 2 == 0, "This program doesn't support images with an odd width"
-
-    # How many work-items to have (one for every pair of pixels).
-    pair_count = int(width / 2)
-    thread_count = pair_count * height
-    global_size = (thread_count, 1)
-
-    # Work groups have to be able to exactly consume all work-items, with no leftovers
-    local_size_thread_count = 8
-    while thread_count % local_size_thread_count != 0:
-        local_size_thread_count -= 2
-
     # How many work-items to put in a work-group, i.e. how to partition work-items.
     # Items in a work-group can work together, e.g. they can share fast local memory.
     # Because the global size is partitioned with the local size into groups,
@@ -319,7 +333,7 @@ def main():
     # which crashes your GPU after a few minutes when input/all_colors_shuffled.png is the input
     # when a huge kernel_size is used (30 on my GPU).
     # Source: https://stackoverflow.com/a/25443544/13279557
-    local_size = (local_size_thread_count, 1)
+    local_size = (workgroup_size, 1)
 
     rand1 = np.uint32(42424242)
     rand2 = np.uint32(69696969)

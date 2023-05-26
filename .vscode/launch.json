@@ -33,6 +33,8 @@
 				"4",
 				// "--color-comparison",
 				// "RGB",
+				"--workgroup-size",
+				"8",
 			],
 			"justMyCode": false
 		},
