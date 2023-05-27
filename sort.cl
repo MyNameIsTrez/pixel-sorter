@@ -135,8 +135,7 @@ void update_neighbor_total(
 
 			float4 neighbor_pixel = get_pixel(pixels, neighbor);
 
-			// neighbor_total += neighbor_pixel / (distance_squared + 1);
-			neighbor_total += neighbor_pixel;
+			neighbor_total += neighbor_pixel / (distance_squared + 1);
 
 			// printf("center: {%d,%d}, neighbor: {%d,%d}, dims: {%d,%d}\n", center.x, center.y, neighbor.x, neighbor.y, width, height);
 
@@ -331,13 +330,15 @@ int get_shuffled_index(
 float4 get_averaged_score_pixel(
 	read_only image2d_t pixels,
 	read_only image2d_t neighbor_totals,
+	read_only image2d_t kernel_,
 	int width,
 	int height,
 	int2 center
 ) {
 	float4 score = get_pixel(neighbor_totals, center);
 
-	int kernel_area = 0;
+	float kernel_area = 0;
+	int2 kernel_center = (int2){KERNEL_RADIUS, KERNEL_RADIUS};
 
 	int dy_min = -min(center.y, KERNEL_RADIUS);
 	int dy_max = min(height - 1 - center.y, KERNEL_RADIUS);
@@ -349,7 +350,9 @@ float4 get_averaged_score_pixel(
 	for (int dy = dy_min; dy <= dy_max; dy++) {
 		for (int dx = dx_min; dx <= dx_max; dx++) {
 
-			int2 neighbor = (int2){center.x + dx, center.y + dy};
+			int2 offset = (int2){dx, dy};
+
+			int2 neighbor = center + offset;
 
 			if (neighbor.x < 0 || neighbor.x >= width
 			|| neighbor.y < 0 || neighbor.y >= height) {
@@ -361,8 +364,11 @@ float4 get_averaged_score_pixel(
 				continue;
 			}
 
-			// kernel_area += 1 / (distance_squared + 1);
-			kernel_area++;
+			int2 kernel_pos = kernel_center + offset;
+
+			float weight = get_pixel(kernel_, kernel_pos).x;
+
+			kernel_area += weight;
 		}
 	}
 
@@ -372,6 +378,7 @@ float4 get_averaged_score_pixel(
 bool should_swap(
 	read_only image2d_t pixels,
 	read_only image2d_t neighbor_totals,
+	read_only image2d_t kernel_,
 	float4 pixel1,
 	float4 pixel2,
 	int width,
@@ -380,12 +387,12 @@ bool should_swap(
 	int2 pos2,
 	int gid
 ) {
-	float4 i1_averaged = get_averaged_score_pixel(pixels, neighbor_totals, width, height, pos1);
+	float4 i1_averaged = get_averaged_score_pixel(pixels, neighbor_totals, kernel_, width, height, pos1);
 	float i1_old_score = get_squared_color_difference(pixels, pixel1, i1_averaged);
 	float i1_new_score = get_squared_color_difference(pixels, pixel2, i1_averaged);
 	float i1_score_difference = -i1_old_score + i1_new_score;
 
-	float4 i2_averaged = get_averaged_score_pixel(pixels, neighbor_totals, width, height, pos2);
+	float4 i2_averaged = get_averaged_score_pixel(pixels, neighbor_totals, kernel_, width, height, pos2);
 	float i2_old_score = get_squared_color_difference(pixels, pixel2, i2_averaged);
 	float i2_new_score = get_squared_color_difference(pixels, pixel1, i2_averaged);
 	float i2_score_difference = -i2_old_score + i2_new_score;
@@ -411,6 +418,7 @@ kernel void sort(
 	read_only image2d_t pixels,
 	read_only image2d_t neighbor_totals,
 	read_only image2d_t updated,
+	read_only image2d_t kernel_,
 	u32 rand1,
 	u32 rand2
 ) {
@@ -454,7 +462,7 @@ kernel void sort(
 		// printf("i1: %d, i2: %d, shuffled_i1: %d, shuffled_i2: %d, pos1: {%d,%d}, pos2: {%d,%d}", i1, i2, shuffled_i1, shuffled_i2, pos1.x, pos1.y, pos2.x, pos2.y);
 
 		// TODO: Stop unnecessarily passing gid to a bunch of functions!
-		bool swapping = should_swap(pixels, neighbor_totals, pixel1, pixel2, width, height, pos1, pos2, gid);
+		bool swapping = should_swap(pixels, neighbor_totals, kernel_, pixel1, pixel2, width, height, pos1, pos2, gid);
 
 		// if (swapping) {
 		// 	taken++;

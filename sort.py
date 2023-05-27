@@ -106,9 +106,10 @@ def initialize_neighbor_totals_buf(
     queue, neighbor_totals_buf, pixels, width, height, kernel
 ):
     print("Running ndimage.correlate(pixels, kernel)...")
+    # [:, :, :3] means only grabbing the R out of RGBA
     # mode=constant: The input is extended by filling all values beyond the edge with the same constant value, defined by the cval parameter (which is 0 by default).
     # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.correlate.html#scipy-ndimage-correlate
-    neighbor_totals = ndimage.correlate(pixels, kernel, mode="constant")
+    neighbor_totals = ndimage.correlate(pixels, kernel[:, :, :3], mode="constant")
 
     print("Copying neighbor_totals to neighbor_totals_buf...")
     cl.enqueue_copy(
@@ -123,7 +124,7 @@ def initialize_neighbor_totals_buf(
 def get_kernel(kernel_radius):
     kernel_diameter = kernel_radius * 2 + 1
 
-    kernel = np.zeros((kernel_diameter, kernel_diameter, 1))
+    kernel = np.zeros((kernel_diameter, kernel_diameter, 4), dtype=np.float32)
 
     kernel_radius_squared = kernel_radius**2
 
@@ -138,8 +139,7 @@ def get_kernel(kernel_radius):
             y = kernel_radius + dy
 
             # TODO: Not sure if it should be x, y instead?
-            # kernel[y, x] = 1 / (distance_squared + 1)
-            kernel[y, x] = 1
+            kernel[y, x] = 1 / (distance_squared + 1)
 
     # print(kernel)
 
@@ -307,6 +307,22 @@ def main():
 
     print("Creating image kernel...")
     kernel = get_kernel(args.kernel_radius)
+    kernel_width = kernel.shape[0]
+    kernel_height = kernel.shape[1]
+
+    print("Creating kernel_buf for sort.cl...")
+    # TODO: Try using kernel_format:
+    # kernel_format = cl.ImageFormat(cl.channel_order.INTENSITY, cl.channel_type.FLOAT)
+    kernel_buf = cl.Image(
+        ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(kernel_width, kernel_height)
+    )
+    cl.enqueue_copy(
+        queue,
+        kernel_buf,
+        kernel,
+        origin=(0, 0),
+        region=(kernel_width, kernel_height),
+    ).wait()
 
     # TODO: The rgba_format channel_type FLOAT might be lossy with large enough kernels!
     # Make sure to try a huge kernel on big_palette.png, and let count_colors.py do its thing!
@@ -401,6 +417,7 @@ def main():
                 pixels_buf,
                 neighbor_totals_buf,
                 updated_buf,
+                kernel_buf,
                 rand1,
                 rand2,
             ).wait()
