@@ -7,7 +7,7 @@ import humanize
 import numpy as np
 import pyopencl as cl
 from PIL import Image
-from scipy import ndimage
+from scipy import signal
 from skimage import color
 
 import count_colors
@@ -105,11 +105,12 @@ def save_result(
 def initialize_neighbor_totals_buf(
     queue, neighbor_totals_buf, pixels, width, height, kernel
 ):
-    print("Running ndimage.correlate(pixels, kernel)...")
+    print("Running convolve(pixels, kernel)...")
     # [:, :, :3] means only grabbing the R out of RGBA
-    # mode=constant: The input is extended by filling all values beyond the edge with the same constant value, defined by the cval parameter (which is 0 by default).
-    # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.correlate.html#scipy-ndimage-correlate
-    neighbor_totals = ndimage.correlate(pixels, kernel[:, :, :3], mode="constant")
+    # Play around with kernel_tests.py to see how convolve() works.
+    # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.convolve.html
+    neighbor_totals = signal.convolve(pixels, kernel[:, :, :3], mode="same")
+    # neighbor_totals = np.random.rand(width, height, 4)
 
     print("Copying neighbor_totals to neighbor_totals_buf...")
     cl.enqueue_copy(
