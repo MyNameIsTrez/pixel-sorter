@@ -220,7 +220,7 @@ def add_parser_arguments(parser):
         "-z",
         "--saved-image-leading-zero-count",
         type=int,
-        default=0,
+        default=4,
         help="The number of leading zeros on saved images; this has no effect if the -n switch isn't passed!",
     )
     parser.add_argument(
