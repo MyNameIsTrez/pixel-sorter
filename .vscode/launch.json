@@ -49,5 +49,16 @@
 			],
 			"justMyCode": false
 		},
+		{
+			"name": "shuffle",
+			"type": "python",
+			"request": "launch",
+			"program": "shuffle.py",
+			"args": [
+				"input/palette_2x_8x128.png",
+				"output/palette_2x_8x128_shuffled.png",
+			],
+			"justMyCode": false
+		},
 	]
 }
