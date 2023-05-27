@@ -2,6 +2,9 @@
 // They are solely here to make my VS Code highlighter
 // not whine about the *real* defines not being in this file
 #ifndef MAKE_VSCODE_HIGHLIGHTER_HAPPY
+#define WIDTH 0
+#define HEIGHT 0
+#define PIXEL_COUNT 0
 #define ITERATIONS_IN_KERNEL_PER_CALL 0
 #define KERNEL_RADIUS 0
 #define SHUFFLE_MODE 0
@@ -28,23 +31,21 @@ void set_pixel(
 
 void mark_neighbors_as_updated(
 	read_only image2d_t updated,
-	int width,
-	int height,
 	int2 center
 ) {
 	int dy_min = -min(center.y, KERNEL_RADIUS);
-	int dy_max = min(height - 1 - center.y, KERNEL_RADIUS);
+	int dy_max = min(HEIGHT - 1 - center.y, KERNEL_RADIUS);
 
 	int dx_min = -min(center.x, KERNEL_RADIUS);
-	int dx_max = min(width - 1 - center.x, KERNEL_RADIUS);
+	int dx_max = min(WIDTH - 1 - center.x, KERNEL_RADIUS);
 
 	for (int dy = dy_min; dy <= dy_max; dy++) {
 		for (int dx = dx_min; dx <= dx_max; dx++) {
 
 			int2 neighbor = (int2){center.x + dx, center.y + dy};
 
-			if (neighbor.x < 0 || neighbor.x >= width
-			|| neighbor.y < 0 || neighbor.y >= height) {
+			if (neighbor.x < 0 || neighbor.x >= WIDTH
+			|| neighbor.y < 0 || neighbor.y >= HEIGHT) {
 				continue;
 			}
 
@@ -106,8 +107,6 @@ void update_neighbor_total(
 	read_only image2d_t pixels,
 	write_only image2d_t neighbor_totals,
 	read_only image2d_t kernel_,
-	int width,
-	int height,
 	int2 center,
 	int gid
 ) {
@@ -115,10 +114,10 @@ void update_neighbor_total(
 	int2 kernel_center = (int2){KERNEL_RADIUS, KERNEL_RADIUS};
 
 	int dy_min = -min(center.y, KERNEL_RADIUS);
-	int dy_max = min(height - 1 - center.y, KERNEL_RADIUS);
+	int dy_max = min(HEIGHT - 1 - center.y, KERNEL_RADIUS);
 
 	int dx_min = -min(center.x, KERNEL_RADIUS);
-	int dx_max = min(width - 1 - center.x, KERNEL_RADIUS);
+	int dx_max = min(WIDTH - 1 - center.x, KERNEL_RADIUS);
 
 	for (int dy = dy_min; dy <= dy_max; dy++) {
 		for (int dx = dx_min; dx <= dx_max; dx++) {
@@ -127,8 +126,8 @@ void update_neighbor_total(
 
 			int2 neighbor = center + offset;
 
-			if (neighbor.x < 0 || neighbor.x >= width
-			|| neighbor.y < 0 || neighbor.y >= height) {
+			if (neighbor.x < 0 || neighbor.x >= WIDTH
+			|| neighbor.y < 0 || neighbor.y >= HEIGHT) {
 				continue;
 			}
 
@@ -288,11 +287,10 @@ u64 philox(
 }
 
 int2 get_pos(
-	int shuffled_i,
-	int width
+	int shuffled_i
 ) {
-	int x = shuffled_i % width;
-	int y = (int)(shuffled_i / width);
+	int x = shuffled_i % WIDTH;
+	int y = (int)(shuffled_i / WIDTH);
 	return (int2)(x, y);
 }
 
@@ -327,8 +325,6 @@ bool should_swap(
 	read_only image2d_t neighbor_totals,
 	float4 pixel1,
 	float4 pixel2,
-	int width,
-	int height,
 	int2 pos1,
 	int2 pos2,
 	int gid
@@ -356,12 +352,6 @@ kernel void sort(
 	u32 rand1,
 	u32 rand2
 ) {
-	// TODO: Test if using get_image_dim() instead of these two calls is faster
-	int width = get_image_width(pixels);
-	int height = get_image_height(pixels);
-
-	int pixel_count = width * height;
-
 	int gid = get_global_id(0);
 	int i1 = gid * 2;
 	int i2 = i1 + 1;
@@ -374,11 +364,13 @@ kernel void sort(
 		// TODO: Is this defined to wrap around in OpenCL?
 		rand1++;
 
-		int shuffled_i1 = get_shuffled_index(i1, pixel_count, rand1, rand2, &rand_state);
-		int shuffled_i2 = get_shuffled_index(i2, pixel_count, rand1, rand2, &rand_state);
+		int shuffled_i1 = get_shuffled_index(i1, PIXEL_COUNT, rand1, rand2, &rand_state);
+		int shuffled_i2 = get_shuffled_index(i2, PIXEL_COUNT, rand1, rand2, &rand_state);
 
-		int2 pos1 = get_pos(shuffled_i1, width);
-		int2 pos2 = get_pos(shuffled_i2, width);
+		// TODO: Remap shuffled_i1 to take images with empty spots into account
+
+		int2 pos1 = get_pos(shuffled_i1);
+		int2 pos2 = get_pos(shuffled_i2);
 
 		set_pixel(updated, pos1, 0);
 		set_pixel(updated, pos2, 0);
@@ -391,7 +383,7 @@ kernel void sort(
 		// printf("i1: %d, i2: %d, shuffled_i1: %d, shuffled_i2: %d, pos1: {%d,%d}, pos2: {%d,%d}", i1, i2, shuffled_i1, shuffled_i2, pos1.x, pos1.y, pos2.x, pos2.y);
 
 		// TODO: Stop unnecessarily passing gid to a bunch of functions!
-		bool swapping = should_swap(pixels, neighbor_totals, pixel1, pixel2, width, height, pos1, pos2, gid);
+		bool swapping = should_swap(pixels, neighbor_totals, pixel1, pixel2, pos1, pos2, gid);
 
 		// TODO: Not sure which of these two flags I should use,
 		// cause either seems to work.
@@ -400,20 +392,20 @@ kernel void sort(
 
 		if (swapping) {
 			set_pixel(pixels, pos1, pixel2);
-			mark_neighbors_as_updated(updated, width, height, pos1);
+			mark_neighbors_as_updated(updated, pos1);
 
 			set_pixel(pixels, pos2, pixel1);
-			mark_neighbors_as_updated(updated, width, height, pos2);
+			mark_neighbors_as_updated(updated, pos2);
 		}
 
 		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
 		if (swapping || get_pixel(updated, pos1).x != 0) {
-			update_neighbor_total(pixels, neighbor_totals, kernel_, width, height, pos1, gid);
+			update_neighbor_total(pixels, neighbor_totals, kernel_, pos1, gid);
 		}
 
 		if (swapping || get_pixel(updated, pos2).x != 0) {
-			update_neighbor_total(pixels, neighbor_totals, kernel_, width, height, pos2, gid);
+			update_neighbor_total(pixels, neighbor_totals, kernel_, pos2, gid);
 		}
 
 		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);

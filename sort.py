@@ -151,25 +151,6 @@ def get_kernel(kernel_radius):
     return kernel
 
 
-def get_opencl_code(iterations_in_kernel_per_call, kernel_radius, shuffle_mode):
-    opencl_code = Path("sort.cl").read_text()
-
-    defines = {
-        "ITERATIONS_IN_KERNEL_PER_CALL": iterations_in_kernel_per_call,
-        "KERNEL_RADIUS": kernel_radius,
-        "SHUFFLE_MODE": shuffle_mode,
-    }
-
-    defines_str = "\n".join(
-        (
-            f"#define {define_name} {define_value}"
-            for define_name, define_value in defines.items()
-        )
-    )
-
-    return defines_str + "\n\n" + opencl_code
-
-
 def add_parser_arguments(parser):
     parser.add_argument(
         "input_image_path",
@@ -276,13 +257,17 @@ def main():
     print(f"Using kernel radius {kernel_radius}")
 
     print("Building sort.cl...")
+    defines = (
+        f"-D MAKE_VSCODE_HIGHLIGHTER_HAPPY=1",
+        f"-D WIDTH={width}",
+        f"-D HEIGHT={height}",
+        f"-D PIXEL_COUNT={width * height}",
+        f"-D ITERATIONS_IN_KERNEL_PER_CALL={args.iterations_in_kernel_per_call}",
+        f"-D KERNEL_RADIUS={kernel_radius}",
+        f"-D SHUFFLE_MODE={args.shuffle_mode}",
+    )
     # TODO: Try to find useful optimization flags
-    prg = cl.Program(
-        ctx,
-        get_opencl_code(
-            args.iterations_in_kernel_per_call, kernel_radius, args.shuffle_mode
-        ),
-    ).build(options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1")
+    prg = cl.Program(ctx, Path("sort.cl").read_text()).build(options=defines)
 
     # How many work-items to have (one for every pair of pixels)
     pair_count = int(width / 2)
