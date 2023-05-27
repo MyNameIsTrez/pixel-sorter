@@ -43,13 +43,13 @@ def print_status(
     python_iteration,
     iterations_in_kernel_per_call,
     start_time,
-    thread_count,
+    pair_count,
 ):
     prev_iteration = (prev_python_iteration + 1) * iterations_in_kernel_per_call
     iteration = (python_iteration + 1) * iterations_in_kernel_per_call
 
-    prev_attempted_swaps = prev_iteration * thread_count
-    attempted_swaps = iteration * thread_count
+    prev_attempted_swaps = prev_iteration * pair_count
+    attempted_swaps = iteration * pair_count
 
     attempted_swaps_difference = attempted_swaps - prev_attempted_swaps
 
@@ -270,14 +270,13 @@ def main():
     prg = cl.Program(ctx, Path("sort.cl").read_text()).build(options=defines)
 
     # How many work-items to have (one for every pair of pixels)
-    pair_count = int(width / 2)
-    thread_count = pair_count * height
-    global_size = (thread_count, 1)
+    pair_count = int(width / 2) * height
+    global_size = (pair_count, 1)
 
     # Work groups have to be able to exactly consume all work-items, with no leftovers
     workgroup_size = args.workgroup_size
 
-    while thread_count % workgroup_size != 0:
+    while pair_count % workgroup_size != 0:
         workgroup_size -= 1
 
     # Don't allow the workgroup_size to be odd
@@ -388,7 +387,7 @@ def main():
                     python_iteration,
                     args.iterations_in_kernel_per_call,
                     start_time,
-                    thread_count,
+                    pair_count,
                 )
 
                 last_printed_time = time.time()
@@ -437,7 +436,7 @@ def main():
             python_iteration,
             args.iterations_in_kernel_per_call,
             start_time,
-            thread_count,
+            pair_count,
         )
 
         if not args.no_overwriting_output:
