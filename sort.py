@@ -106,10 +106,14 @@ def initialize_neighbor_totals_buf(
     queue, neighbor_totals_buf, pixels, width, height, kernel
 ):
     print("Running convolve(pixels, kernel)...")
+
     # [:, :, :3] means only grabbing the R out of RGBA
     # Play around with kernel_tests.py to see how convolve() works.
     # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.convolve.html
     neighbor_totals = signal.convolve(pixels, kernel[:, :, :3], mode="same")
+
+    # In practice seeding neighbor_totals with random values works fine as well,
+    # since sort.cl will overwrite the initial values quickly anyways
     # neighbor_totals = np.random.rand(width, height, 4)
 
     print("Copying neighbor_totals to neighbor_totals_buf...")
@@ -275,7 +279,7 @@ def main():
 
     assert width % 2 == 0, "This program doesn't support images with an odd width"
 
-    # How many work-items to have (one for every pair of pixels).
+    # How many work-items to have (one for every pair of pixels)
     pair_count = int(width / 2)
     thread_count = pair_count * height
     global_size = (thread_count, 1)
