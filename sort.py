@@ -1,4 +1,5 @@
 import argparse
+import math
 import os
 import time
 from pathlib import Path
@@ -199,8 +200,8 @@ def add_parser_arguments(parser):
         "-k",
         "--kernel-radius",
         type=int,
-        default=10,
-        help="The radius of neighbors that get compared against the current pixel's color; a higher radius means more blur",
+        default=math.inf,
+        help="The radius of neighbors that get compared against the current pixel's color; a higher radius means more blur, but is quadratically slower",
     )
     parser.add_argument(
         "-m",
@@ -259,15 +260,6 @@ def main():
     ctx = cl.create_some_context()
     queue = cl.CommandQueue(ctx)
 
-    print("Building sort.cl...")
-    # TODO: Try to find useful optimization flags
-    prg = cl.Program(
-        ctx,
-        get_opencl_code(
-            args.iterations_in_kernel_per_call, args.kernel_radius, args.shuffle_mode
-        ),
-    ).build(options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1")
-
     print("Loading input image...")
     # This example code only works with RGBA images
     pixels_img = Image.open(args.input_image_path).convert("RGBA")
@@ -278,6 +270,20 @@ def main():
     width = pixels.shape[1]
 
     assert width % 2 == 0, "This program doesn't support images with an odd width"
+
+    kernel_radius = args.kernel_radius
+    max_kernel_radius = max(width, height) - 1
+    kernel_radius = min(kernel_radius, max_kernel_radius)
+    print(f"Using kernel radius {kernel_radius}")
+
+    print("Building sort.cl...")
+    # TODO: Try to find useful optimization flags
+    prg = cl.Program(
+        ctx,
+        get_opencl_code(
+            args.iterations_in_kernel_per_call, kernel_radius, args.shuffle_mode
+        ),
+    ).build(options="-DMAKE_VSCODE_HIGHLIGHTER_HAPPY=1")
 
     # How many work-items to have (one for every pair of pixels)
     pair_count = int(width / 2)
@@ -311,7 +317,7 @@ def main():
     ).wait()
 
     print("Creating image kernel...")
-    kernel = get_kernel(args.kernel_radius)
+    kernel = get_kernel(kernel_radius)
     kernel_width = kernel.shape[0]
     kernel_height = kernel.shape[1]
 
