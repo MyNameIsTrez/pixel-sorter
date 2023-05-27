@@ -1,5 +1,4 @@
 import argparse
-import math
 import os
 import time
 from pathlib import Path
@@ -200,8 +199,8 @@ def add_parser_arguments(parser):
         "-k",
         "--kernel-radius",
         type=int,
-        default=math.inf,
-        help="The radius of neighbors that get compared against the current pixel's color; a higher radius means more blur, but is quadratically slower",
+        default=100,
+        help="The radius of neighbors that get compared against the current pixel's color; a higher radius means better sorting, but is quadratically slower",
     )
     parser.add_argument(
         "-m",
