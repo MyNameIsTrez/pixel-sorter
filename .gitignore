@@ -7,6 +7,6 @@
 !.gitignore
 !**/*.cl
 !**/*.py
-test.py
 !README.md
 !requirements.txt
+local/**/*
