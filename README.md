@@ -8,6 +8,10 @@ Before vs after:
 	<img src="media/palette_output.png" alt="This output palette is pretty much optimally sorted by color.">
 </p>
 
+Here's what you get when you paste that same `before` image 64 times and sort it:
+
+<img src="media/palette_output_large.png" alt="This large output palette is also color sorted.">
+
 Put a different way, it blurs an image, while retaining all of the original pixels:
 
 <p><img src="media/blurry_elephant.png" alt="Half is the input toy elephant and the other half is the blurry output toy elephant."></p>
