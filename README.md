@@ -8,9 +8,13 @@ Before vs after:
 	<img src="media/palette_output.png" alt="This output palette is pretty much optimally sorted by color.">
 </p>
 
-Here's what you get when you paste that same `before` image 64 times and sort it:
+Here's the `before` palette pasted 4 times and sorted into the shape of a heart:
 
-<img src="media/palette_output_large.png" alt="This large output palette is also color sorted.">
+<img src="media/heart_output.png" alt="This heart output is color sorted.">
+
+Here's the `before` palette pasted 64 times and sorted:
+
+<img src="media/palette_output_large.png" alt="This large output palette is color sorted.">
 
 Put a different way, it blurs an image, while retaining all of the original pixels:
 
