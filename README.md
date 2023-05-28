@@ -26,6 +26,12 @@ It repeatedly attempts to swap two random pixels, only doing the swap if that'd 
 
 At the heart of the program lies my PyOpenCL port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `LCGBijectiveFunction` and `PhiloxBijectiveFunction` shuffling classes.
 
+Pixels are first converted from RGB to the CIELAB color space, in order to make later pixel color comparisons more accurate to how the human eye works. See [this Wikipedia article](https://en.wikipedia.org/wiki/Color_difference) on color difference:
+
+> Uniform color space: a color space in which equivalent numerical differences represent equivalent visual differences, regardless of location within the color space.
+
+Here's the same heart video from before, but in RGB. Notice the green splotches everywhere:
+
 ## Usage
 
 1. Clone this repository.
