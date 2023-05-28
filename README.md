@@ -10,7 +10,7 @@ Before vs after:
 
 Here's the `before` palette pasted 4 times and sorted into the shape of a heart:
 
-https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/57d1d63c-6f40-4988-bf51-147c9bdf78f8
+https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/3a71be22-17b2-4e5f-8d89-183eb4c8907f
 
 Here's the `before` palette pasted 64 times and sorted:
 
@@ -30,7 +30,9 @@ Pixels are first converted from RGB to the CIELAB color space, in order to make 
 
 > Uniform color space: a color space in which equivalent numerical differences represent equivalent visual differences, regardless of location within the color space.
 
-Here's the same heart video from before, but in RGB. Notice the green splotches everywhere:
+Here's the same heart video from before, but with color comparisons done in RGB. The ugly green splotches are most noticeable:
+
+https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-ad10-cd145d844d64
 
 ## Usage
 
