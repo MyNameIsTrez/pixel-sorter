@@ -198,7 +198,7 @@ def add_parser_arguments(parser):
     parser.add_argument(
         "-s",
         "--seconds-between-saves",
-        type=int,
+        type=float,
         default=10,
         help="How often the current output image gets saved",
     )
