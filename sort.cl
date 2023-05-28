@@ -79,19 +79,6 @@ float4 get_pixel(
 	return read_imagef(pixels, sampler, pos);
 }
 
-// TODO: Figure out a way to make this one work
-// void update_neighbor_total(
-// 	write_only image2d_t neighbor_totals,
-// 	int2 pos,
-// 	float4 old_pixel,
-// 	float4 new_pixel
-// ) {
-// 	float4 old_neighbor_total = get_pixel(neighbor_totals, pos);
-// 	float4 new_neighbor_total = old_neighbor_total - old_pixel + new_pixel;
-
-// 	set_pixel(neighbor_totals, pos, new_neighbor_total);
-// }
-
 void update_neighbor_total(
 	read_only image2d_t pixels,
 	write_only image2d_t neighbor_totals,
