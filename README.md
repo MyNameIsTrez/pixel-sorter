@@ -1,4 +1,4 @@
-# PyOpenCL Color Sorter
+# Pixel Sorter
 
 Sorts the pixels of an image based on their color.
 
