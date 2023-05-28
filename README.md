@@ -39,7 +39,27 @@ https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-
 1. Clone this repository.
 2. `cd` into it.
 3. Install requirements with `pip install -r requirements.txt`
-4. Run `python sort.py -h` to see how the program is used
+4. Run `python sort.py -h` to see how the program is used.
+
+## Other included programs
+
+If you open this repository in VS Code, you can launch and configure these programs using the `.vscode/launch.json` file.
+
+### verify.py
+
+Verifies that the color counts of the input and output image are identical.
+
+If the color counts aren't identical and you started the program with VS Code's Python debugger, the VS Code `Run and Debug` view on the left allows you to inspect the colors and counts of the input and output image.
+
+### fill_mask.py
+
+Puts the opaque pixels of an input image into the white pixels of an input mask, and writes the result to an output image.
+
+The heart shape was created using this program, from a square image of pixels and a heart-shaped mask.
+
+### shuffle.py
+
+Shuffles the opaque pixels of an input image, and writes the result to an output image.
 
 ## How to turn the output images into videos
 
