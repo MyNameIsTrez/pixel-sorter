@@ -24,7 +24,7 @@ It essentially blurs an image, while retaining all of the original pixels:
 
 It repeatedly attempts to swap two random pixels, only doing the swap if that'd place them next to pixels with more similar colors.
 
-At the heart of the program lies my PyOpenCL port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `LCGBijectiveFunction` and `PhiloxBijectiveFunction` shuffling classes.
+At the heart of the program lies my PyOpenCL port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `LCGBijectiveFunction` shuffling class.
 
 Pixels are first converted from RGB to the CIELAB color space, in order to make later pixel color comparisons more accurate to how the human eye works. See [this Wikipedia article](https://en.wikipedia.org/wiki/Color_difference) on color difference:
 

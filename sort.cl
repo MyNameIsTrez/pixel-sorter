@@ -7,16 +7,9 @@
 #define OPAQUE_PIXEL_COUNT 0
 #define ITERATIONS_IN_KERNEL_PER_CALL 0
 #define KERNEL_RADIUS 0
-#define SHUFFLE_MODE 0
 #endif
 
 #define KERNEL_RADIUS_SQUARED (KERNEL_RADIUS * KERNEL_RADIUS)
-#define NUM_PHILOX_ROUNDS 24
-
-enum SHUFFLE_MODES {
-	LCG,
-	PHILOX,
-};
 
 typedef uint u32;
 typedef ulong u64;
@@ -183,101 +176,6 @@ u64 lcg(
 	return ((val * multiplier) + addition) & (modulus - 1);
 }
 
-// Source: https://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
-u32 rand(
-	uint2 *state
-) {
-    enum {
-		A = 4294883355U
-	};
-
-	// Unpack the state
-    u32 x=(*state).x;
-	u32 c=(*state).y;
-
-	// Calculate the result
-    u32 res=x^c;
-
-	// Step the RNG
-	u32 hi=mul_hi(x,A);
-    x=x*A+c;
-    c=hi+(x<c);
-
-	// Pack the state back up
-    *state=(uint2)(x,c);
-
-	// Return the next result
-    return res;
-}
-
-u32 mulhilo(
-	u64 a,
-	u32 b,
-	u32 *hip
-) {
-    u64 product = a * convert_ulong(b);
-    *hip = product >> 32;
-    return convert_uint(product);
-}
-
-u64 get_cipher_bits(u64 capacity)
-{
-	if(capacity == 0)
-		return 0;
-
-	u64 i = 0;
-	capacity--;
-	while(capacity != 0)
-	{
-		i++;
-		capacity >>= 1;
-	}
-
-	return max(i, convert_ulong(4));
-}
-
-// Source: https://github.com/djns99/CUDA-Shuffle/blob/master/include/shuffle/PhiloxShuffle.h
-u64 philox(
-	u64 capacity,
-	u64 val,
-	uint2 *rand_state
-) {
-	u64 M0 = 0xD2B74407B1CE6E93;
-    u32 key[NUM_PHILOX_ROUNDS];
-
-	u64 total_bits = get_cipher_bits(capacity);
-
-	// Half bits rounded down
-	u64 left_side_bits = total_bits / 2;
-	u64 left_side_mask = (1ull << left_side_bits) - 1;
-
-	// Half the bits rounded up
-	u64 right_side_bits = total_bits - left_side_bits;
-	u64 right_side_mask = (1ull << right_side_bits) - 1;
-
-	for(int i = 0; i < NUM_PHILOX_ROUNDS; i++)
-	{
-		key[i] = rand(rand_state);
-	}
-
-	u32 state[2] = {
-		convert_uint(val >> right_side_bits),
-		convert_uint(val & right_side_mask)
-	};
-
-	for(int i = 0; i < NUM_PHILOX_ROUNDS; i++)
-	{
-		u32 hi;
-		u32 lo = mulhilo(M0, state[0], &hi);
-		lo = (lo << (right_side_bits - left_side_bits)) | state[1] >> left_side_bits;
-		state[0] = ((hi ^ key[i]) ^ state[1]) & left_side_mask;
-		state[1] = lo & right_side_mask;
-	}
-
-	// Combine the left and right sides together to get result
-	return convert_ulong(state[0]) << right_side_bits | convert_ulong(state[1]);
-}
-
 int2 get_pos(
 	int shuffled_i
 ) {
@@ -288,26 +186,21 @@ int2 get_pos(
 
 int get_shuffled_index(
 	int i,
-	int num_pixels,
 	u32 rand1,
-	u32 rand2,
-	uint2 *rand_state
+	u32 rand2
 ) {
-	// assert(i < num_pixels);
+	// assert(i < OPAQUE_PIXEL_COUNT);
 	// TODO: Replace with proper assert() somehow
-	if (!(i < num_pixels)) {
-		printf("Assertion failure: i < num_pixels was false!\n");
+	if (!(i < OPAQUE_PIXEL_COUNT)) {
+		printf("Assertion failure: i < OPAQUE_PIXEL_COUNT was false!\n");
 	}
+
 	int shuffled = i;
 
-	// This loop is guaranteed to terminate if i < num_pixels
+	// This loop is guaranteed to terminate if i < OPAQUE_PIXEL_COUNT
 	do {
-		if (SHUFFLE_MODE == LCG) {
-			shuffled = lcg(num_pixels, shuffled, rand1, rand2);
-		} else {
-			shuffled = philox(num_pixels, shuffled, rand_state);
-		}
-	} while (shuffled >= num_pixels);
+		shuffled = lcg(OPAQUE_PIXEL_COUNT, shuffled, rand1, rand2);
+	} while (shuffled >= OPAQUE_PIXEL_COUNT);
 
 	return shuffled;
 }
@@ -357,8 +250,8 @@ kernel void sort(
 		// TODO: Is this defined to wrap around in OpenCL?
 		rand1++;
 
-		int shuffled_i1 = get_shuffled_index(i1, OPAQUE_PIXEL_COUNT, rand1, rand2, &rand_state);
-		int shuffled_i2 = get_shuffled_index(i2, OPAQUE_PIXEL_COUNT, rand1, rand2, &rand_state);
+		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2);
+		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2);
 
 		// TODO: Remap shuffled_i1 so it takes images with empty alpha=0 spots into account
 		shuffled_i1 = normal_to_opaque_index_lut[shuffled_i1];

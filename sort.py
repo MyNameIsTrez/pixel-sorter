@@ -204,13 +204,6 @@ def add_parser_arguments(parser):
         help="The radius of neighbors that get compared against the current pixel's color; a higher radius means better sorting, but is quadratically slower",
     )
     parser.add_argument(
-        "-m",
-        "--shuffle-mode",
-        type=str,
-        default="LCG",
-        help="The shuffle mode: LCG is faster, while PHILOX is higher quality",
-    )
-    parser.add_argument(
         "-n",
         "--no-overwriting-output",
         action="store_true",
@@ -248,11 +241,6 @@ def main():
     )
     add_parser_arguments(parser)
     args = parser.parse_args()
-
-    if args.shuffle_mode == "PHILOX":
-        raise Exception(
-            "PHILOX is broken, as it's generating awful shuffle collisions. Use the shuffle mode 'LCG' for the time being. If you comment out this exception, verify() will still point out the collisions."
-        )
 
     print("Initializing OpenCL...")
     os.environ["PYOPENCL_CTX"] = "0"
@@ -305,7 +293,6 @@ def main():
         f"-D OPAQUE_PIXEL_COUNT={pair_count * 2}",
         f"-D ITERATIONS_IN_KERNEL_PER_CALL={args.iterations_in_kernel_per_call}",
         f"-D KERNEL_RADIUS={kernel_radius}",
-        f"-D SHUFFLE_MODE={args.shuffle_mode}",
     )
     # TODO: Try to find useful optimization flags
     prg = cl.Program(ctx, Path("sort.cl").read_text()).build(options=defines)
