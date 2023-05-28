@@ -16,6 +16,8 @@ def _get_colors_and_counts(filepath):
 
 
 def verify(input_image_path, output_image_path):
+    print("Verifying...")
+
     input_colors, input_counts = _get_colors_and_counts(input_image_path)
     output_colors, output_counts = _get_colors_and_counts(output_image_path)
 

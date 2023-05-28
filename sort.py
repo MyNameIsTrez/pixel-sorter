@@ -92,6 +92,7 @@ def get_normal_to_opaque_index_lut(pixels):
 
     offset = 0
 
+    # TODO: This takes forever with all_colors.png; numpy-ify these loops
     for row in pixels:
         for pixel in row:
             if pixel[3] == 0:
@@ -315,7 +316,7 @@ def main():
 
     rgba_format = cl.ImageFormat(cl.channel_order.RGBA, cl.channel_type.FLOAT)
 
-    print("Creating pixels_buf for sort.cl...")
+    print("Creating pixels_buf...")
     pixels_buf = cl.Image(
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
@@ -328,7 +329,7 @@ def main():
     kernel_width = kernel.shape[0]
     kernel_height = kernel.shape[1]
 
-    print("Creating kernel_buf for sort.cl...")
+    print("Creating kernel_buf...")
     # TODO: Try using kernel_format:
     # kernel_format = cl.ImageFormat(cl.channel_order.INTENSITY, cl.channel_type.FLOAT)
     kernel_buf = cl.Image(
@@ -349,7 +350,7 @@ def main():
         queue, neighbor_totals_buf, pixels, width, height, kernel
     )
 
-    print("Creating updated_buf for sort.cl...")
+    print("Creating updated_buf...")
     updated_buf = cl.Image(
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
@@ -362,6 +363,7 @@ def main():
 
     saved_results = 0
 
+    print("Creating normal_to_opaque_index_lut...")
     normal_to_opaque_index_lut = get_normal_to_opaque_index_lut(pixels)
     normal_to_opaque_index_lut_buf = cl.Buffer(
         ctx,
@@ -369,14 +371,14 @@ def main():
         hostbuf=normal_to_opaque_index_lut,
     )
 
-    opencl_sort = prg.sort
-
     output_image_path = get_output_image_path(
         args.output_image_path,
         args.no_overwriting_output,
         args.saved_image_leading_zero_count,
         saved_results,
     )
+
+    opencl_sort = prg.sort
 
     last_printed_time = time.time()
 
