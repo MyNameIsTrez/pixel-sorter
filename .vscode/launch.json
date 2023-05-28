@@ -39,6 +39,18 @@
 			"justMyCode": false
 		},
 		{
+			"name": "fill mask",
+			"type": "python",
+			"request": "launch",
+			"program": "fill_mask.py",
+			"args": [
+				"input/heart.png",
+				"masks/heart.png",
+				"filled_masks/heart.png",
+			],
+			"justMyCode": false
+		},
+		{
 			"name": "count colors",
 			"type": "python",
 			"request": "launch",
