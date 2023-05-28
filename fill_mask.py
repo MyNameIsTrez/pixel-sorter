@@ -30,7 +30,7 @@ def fill_mask(input_image_path, input_mask_image_path, output_filled_mask_image_
 
     sanity_check_inputs(input_arr, input_mask_arr)
 
-    saved_arr = np.zeros(
+    output_arr = np.zeros(
         (input_mask_img.width, input_mask_img.height, 4), dtype=np.uint8
     )
 
@@ -45,11 +45,11 @@ def fill_mask(input_image_path, input_mask_image_path, output_filled_mask_image_
                 y = int(index / width)
                 pixel = input_arr[pixel_index]
                 pixel_index += 1
-                saved_arr[y, x] = pixel
+                output_arr[y, x] = pixel
             offset += 1
 
-    saved_img = Image.fromarray(saved_arr)
-    saved_img.save(output_filled_mask_image_path)
+    output_img = Image.fromarray(output_arr)
+    output_img.save(output_filled_mask_image_path)
 
 
 def add_parser_arguments(parser):
