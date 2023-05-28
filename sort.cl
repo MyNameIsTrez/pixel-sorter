@@ -33,6 +33,7 @@ void mark_neighbors_as_updated(
 	read_only image2d_t updated,
 	int2 center
 ) {
+	// TODO: By padding the input image, it should be possible to get rid of these bounds variables
 	int dy_min = -min(center.y, KERNEL_RADIUS);
 	int dy_max = min(HEIGHT - 1 - center.y, KERNEL_RADIUS);
 
@@ -43,12 +44,6 @@ void mark_neighbors_as_updated(
 		for (int dx = dx_min; dx <= dx_max; dx++) {
 
 			int2 neighbor = (int2){center.x + dx, center.y + dy};
-
-			// TODO: Is this even necessary with dy_min and such?
-			if (neighbor.x < 0 || neighbor.x >= WIDTH
-			|| neighbor.y < 0 || neighbor.y >= HEIGHT) {
-				continue;
-			}
 
             int distance_squared = dx * dx + dy * dy;
 			if (distance_squared > KERNEL_RADIUS_SQUARED) {
@@ -114,6 +109,7 @@ void update_neighbor_total(
 	float4 neighbor_total = 0;
 	int2 kernel_center = (int2){KERNEL_RADIUS, KERNEL_RADIUS};
 
+	// TODO: By padding the input image, it should be possible to get rid of these bounds variables
 	int dy_min = -min(center.y, KERNEL_RADIUS);
 	int dy_max = min(HEIGHT - 1 - center.y, KERNEL_RADIUS);
 
@@ -126,12 +122,6 @@ void update_neighbor_total(
 			int2 offset = (int2){dx, dy};
 
 			int2 neighbor = center + offset;
-
-			// TODO: Is this even necessary with dy_min and such?
-			if (neighbor.x < 0 || neighbor.x >= WIDTH
-			|| neighbor.y < 0 || neighbor.y >= HEIGHT) {
-				continue;
-			}
 
             int distance_squared = dx * dx + dy * dy;
 			if (distance_squared > KERNEL_RADIUS_SQUARED) {
