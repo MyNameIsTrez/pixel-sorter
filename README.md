@@ -43,6 +43,8 @@ You need to install OpenCL if you don't have it already, but this program should
 3. Install requirements with `pip install -r requirements.txt`
 4. Run `python sort.py -h` to see how the program is used.
 
+Press Ctrl+C once to stop the program. Look at the output image while it's running to decide whether you are satisfied with how sorted the result is.
+
 ## Other included programs
 
 If you open this repository in VS Code, you can launch and configure these programs using the `.vscode/launch.json` file.
@@ -57,7 +59,7 @@ If the color counts aren't identical and you started the program with VS Code's 
 
 Puts the opaque pixels of an input image into the white pixels of an input mask, and writes the result to an output image.
 
-The heart shape was created using this program, from a square image of pixels and a heart-shaped mask.
+The heart shape was created using this program, from `input/heart.png` and the heart-shaped mask `masks/heart_1024.png`.
 
 ### shuffle.py
 

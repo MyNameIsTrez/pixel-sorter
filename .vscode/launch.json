@@ -24,8 +24,10 @@
 				// "output/elephant.png",
 				// "input/masked.png",
 				// "output/masked.png",
-				"filled_masks/heart.png",
+				"input/heart.png",
 				"output/heart.png",
+				// "filled_masks/heart_1024.png",
+				// "output/heart.png",
 				// "input/odd.png",
 				// "output/odd.png",
 				// "input/big_palette.png",
@@ -55,8 +57,8 @@
 			"program": "fill_mask.py",
 			"args": [
 				"input/heart.png",
-				"masks/heart.png",
-				"filled_masks/heart.png",
+				"masks/heart_1024.png",
+				"filled_masks/heart_1024.png",
 			],
 			"justMyCode": false
 		},
@@ -66,8 +68,8 @@
 			"request": "launch",
 			"program": "verify.py",
 			"args": [
-				"masks/heart_1024.png",
-				"masks/heart_1024.png",
+				"input/heart.png",
+				"output/heart.png",
 			],
 			"justMyCode": false
 		},
@@ -77,8 +79,8 @@
 			"request": "launch",
 			"program": "shuffle.py",
 			"args": [
-				"input/palette_8x_128x128.png",
-				"output/palette_8x_128x128_shuffled.png",
+				"input/heart.png",
+				"output/heart_shuffled.png",
 			],
 			"justMyCode": false
 		},

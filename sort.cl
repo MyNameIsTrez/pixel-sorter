@@ -44,6 +44,7 @@ void mark_neighbors_as_updated(
 
 			int2 neighbor = (int2){center.x + dx, center.y + dy};
 
+			// TODO: Is this even necessary with dy_min and such?
 			if (neighbor.x < 0 || neighbor.x >= WIDTH
 			|| neighbor.y < 0 || neighbor.y >= HEIGHT) {
 				continue;
@@ -126,6 +127,7 @@ void update_neighbor_total(
 
 			int2 neighbor = center + offset;
 
+			// TODO: Is this even necessary with dy_min and such?
 			if (neighbor.x < 0 || neighbor.x >= WIDTH
 			|| neighbor.y < 0 || neighbor.y >= HEIGHT) {
 				continue;

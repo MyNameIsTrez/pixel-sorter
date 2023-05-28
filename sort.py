@@ -272,6 +272,7 @@ def main():
     print(f"Using kernel radius {kernel_radius}")
 
     # How many work-items to have (one for every pair of pixels)
+    # TODO: Changing local and global workgroup sizes to (width / 2, height) might improve performance?
     pair_count = get_pair_count(pixels)
     global_size = (pair_count, 1)
 
@@ -415,7 +416,7 @@ def main():
                 last_printed_time = time.time()
                 prev_python_iteration = python_iteration
 
-            # Numpy handles unsigned wraparound for us
+            # Numpy does unsigned wraparound for us
             rand1 = np.uint32(rand1 + 1)
 
             # The .wait() at the end of this line is crucial!
