@@ -6,17 +6,33 @@ from PIL import Image
 
 
 def shuffle(input_image_path, output_image_path):
-    input = Image.open(input_image_path).convert("RGB")
+    input_img = Image.open(input_image_path).convert("RGBA")
+    input_arr = np.array(input_img)
+    original_input_arr = input_arr.copy()
 
-    arr = np.reshape(input.getdata(), (input.width * input.height, 3))
+    # Filter away pixels with an alpha of 0
+    input_arr = input_arr[input_arr[:, :, 3] != 0]
 
-    np.random.shuffle(arr)
+    np.random.shuffle(input_arr)
 
-    arr = np.reshape(arr, (input.height, input.width, 3))
+    output_arr = np.zeros((input_img.width, input_img.height, 4), dtype=np.uint8)
 
-    output = Image.fromarray(arr.astype("uint8"))
+    offset = 0
+    pixel_index = 0
+    width = original_input_arr.shape[1]
+    for row in original_input_arr:
+        for pixel in row:
+            if pixel[3] != 0:
+                index = offset
+                x = index % width
+                y = int(index / width)
+                pixel = input_arr[pixel_index]
+                pixel_index += 1
+                output_arr[y, x] = pixel
+            offset += 1
 
-    output.save(output_image_path)
+    output_img = Image.fromarray(output_arr)
+    output_img.save(output_image_path)
 
 
 def add_parser_arguments(parser):
