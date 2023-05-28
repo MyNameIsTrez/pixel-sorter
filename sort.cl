@@ -4,7 +4,7 @@
 #ifndef MAKE_VSCODE_HIGHLIGHTER_HAPPY
 #define WIDTH 0
 #define HEIGHT 0
-#define PIXEL_COUNT 0
+#define OPAQUE_PIXEL_COUNT 0
 #define ITERATIONS_IN_KERNEL_PER_CALL 0
 #define KERNEL_RADIUS 0
 #define SHUFFLE_MODE 0
@@ -349,6 +349,7 @@ kernel void sort(
 	read_only image2d_t neighbor_totals,
 	read_only image2d_t updated,
 	read_only image2d_t kernel_,
+	global int normal_to_opaque_index_lut[OPAQUE_PIXEL_COUNT],
 	u32 rand1,
 	u32 rand2
 ) {
@@ -364,10 +365,12 @@ kernel void sort(
 		// TODO: Is this defined to wrap around in OpenCL?
 		rand1++;
 
-		int shuffled_i1 = get_shuffled_index(i1, PIXEL_COUNT, rand1, rand2, &rand_state);
-		int shuffled_i2 = get_shuffled_index(i2, PIXEL_COUNT, rand1, rand2, &rand_state);
+		int shuffled_i1 = get_shuffled_index(i1, OPAQUE_PIXEL_COUNT, rand1, rand2, &rand_state);
+		int shuffled_i2 = get_shuffled_index(i2, OPAQUE_PIXEL_COUNT, rand1, rand2, &rand_state);
 
-		// TODO: Remap shuffled_i1 to take images with empty spots into account
+		// TODO: Remap shuffled_i1 so it takes images with empty alpha=0 spots into account
+		shuffled_i1 = normal_to_opaque_index_lut[shuffled_i1];
+		shuffled_i2 = normal_to_opaque_index_lut[shuffled_i2];
 
 		int2 pos1 = get_pos(shuffled_i1);
 		int2 pos2 = get_pos(shuffled_i2);

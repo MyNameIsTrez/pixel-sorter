@@ -13,30 +13,6 @@ from skimage import color
 import count_colors
 
 
-def unpack_rgb_from_pixels(pixels):
-    lab = pixels[:, :, :3]
-
-    rgb = color.lab2rgb(lab)
-
-    rgb *= 255
-
-    pixels[:, :, :3] = rgb
-
-    return pixels
-
-
-def pack_lab_into_pixels(pixels):
-    rgb = pixels[:, :, :3]
-
-    rgb /= 255
-
-    lab = color.rgb2lab(rgb)
-
-    pixels[:, :, :3] = lab
-
-    return pixels
-
-
 def print_status(
     saved_results,
     prev_python_iteration,
@@ -61,6 +37,18 @@ def print_status(
         f", {humanize.intword(attempted_swaps, '%.3f')} attempted swaps"
         f" ({humanize.intword(attempted_swaps_difference, '%+.3f')})"
     )
+
+
+def unpack_rgb_from_pixels(pixels):
+    lab = pixels[:, :, :3]
+
+    rgb = color.lab2rgb(lab)
+
+    rgb *= 255
+
+    pixels[:, :, :3] = rgb
+
+    return pixels
 
 
 def save_result(
@@ -100,6 +88,22 @@ def save_result(
         saved_img.save(output_image_path)
 
     return saved_results
+
+
+def get_normal_to_opaque_index_lut(pixels):
+    normal_to_opaque_index_lut = []
+
+    offset = 0
+
+    for row in pixels:
+        for pixel in row:
+            if pixel[3] == 0:
+                offset += 1
+            else:
+                index = len(normal_to_opaque_index_lut) + offset
+                normal_to_opaque_index_lut.append(index)
+
+    return np.array(normal_to_opaque_index_lut)
 
 
 def initialize_neighbor_totals_buf(
@@ -149,6 +153,28 @@ def get_kernel(kernel_radius):
     # print(kernel)
 
     return kernel
+
+
+def pack_lab_into_pixels(pixels):
+    rgb = pixels[:, :, :3]
+
+    rgb /= 255
+
+    lab = color.rgb2lab(rgb)
+
+    pixels[:, :, :3] = lab
+
+    return pixels
+
+
+def get_pair_count(pixels):
+    opaque_pixel_count = np.sum(pixels[:, :, 3] != 0)
+
+    assert (
+        opaque_pixel_count % 2 == 0
+    ), "The program currently doesn't support images with an odd number of pixels"
+
+    return int(opaque_pixel_count / 2)
 
 
 def add_parser_arguments(parser):
@@ -249,33 +275,17 @@ def main():
     height = pixels.shape[0]
     width = pixels.shape[1]
 
-    assert width % 2 == 0, "This program doesn't support images with an odd width"
-
     kernel_radius = args.kernel_radius
     max_kernel_radius = max(width, height) - 1
     kernel_radius = min(kernel_radius, max_kernel_radius)
     print(f"Using kernel radius {kernel_radius}")
 
-    print("Building sort.cl...")
-    defines = (
-        f"-D MAKE_VSCODE_HIGHLIGHTER_HAPPY=1",
-        f"-D WIDTH={width}",
-        f"-D HEIGHT={height}",
-        f"-D PIXEL_COUNT={width * height}",
-        f"-D ITERATIONS_IN_KERNEL_PER_CALL={args.iterations_in_kernel_per_call}",
-        f"-D KERNEL_RADIUS={kernel_radius}",
-        f"-D SHUFFLE_MODE={args.shuffle_mode}",
-    )
-    # TODO: Try to find useful optimization flags
-    prg = cl.Program(ctx, Path("sort.cl").read_text()).build(options=defines)
-
     # How many work-items to have (one for every pair of pixels)
-    pair_count = int(width / 2) * height
+    pair_count = get_pair_count(pixels)
     global_size = (pair_count, 1)
 
     # Work groups have to be able to exactly consume all work-items, with no leftovers
     workgroup_size = args.workgroup_size
-
     while pair_count % workgroup_size != 0:
         workgroup_size -= 1
 
@@ -284,6 +294,32 @@ def main():
     #     workgroup_size -= 1
 
     print(f"Using workgroup-size {workgroup_size}")
+
+    # How many work-items to put in a work-group, i.e. how to partition work-items.
+    # Items in a work-group can work together, e.g. they can share fast local memory.
+    # Because the global size is partitioned with the local size into groups,
+    # both must have the same dimension, e.g. g.s=(1,10) and l.s=(1,2) gives 5 groups.
+    # If you don't care about work-groups, just put None.
+    # Source is Harry's comment below this answer: https://stackoverflow.com/a/50373589/13279557
+    #
+    # Setting this to None to go would mean an implementation-defined workgroups size would be used,
+    # which crashes your GPU after a few minutes when input/all_colors_shuffled.png is the input
+    # when a huge kernel_size is used (30 on my GPU).
+    # Source: https://stackoverflow.com/a/25443544/13279557
+    local_size = (workgroup_size, 1)
+
+    print("Building sort.cl...")
+    defines = (
+        f"-D MAKE_VSCODE_HIGHLIGHTER_HAPPY=1",
+        f"-D WIDTH={width}",
+        f"-D HEIGHT={height}",
+        f"-D OPAQUE_PIXEL_COUNT={pair_count * 2}",
+        f"-D ITERATIONS_IN_KERNEL_PER_CALL={args.iterations_in_kernel_per_call}",
+        f"-D KERNEL_RADIUS={kernel_radius}",
+        f"-D SHUFFLE_MODE={args.shuffle_mode}",
+    )
+    # TODO: Try to find useful optimization flags
+    prg = cl.Program(ctx, Path("sort.cl").read_text()).build(options=defines)
 
     print("Packing LAB colors into input image pixels...")
     if args.color_comparison == "LAB":
@@ -332,19 +368,6 @@ def main():
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
 
-    # How many work-items to put in a work-group, i.e. how to partition work-items.
-    # Items in a work-group can work together, e.g. they can share fast local memory.
-    # Because the global size is partitioned with the local size into groups,
-    # both must have the same dimension, e.g. g.s=(1,10) and l.s=(1,2) gives 5 groups.
-    # If you don't care about work-groups, just put None.
-    # Source is Harry's comment below this answer: https://stackoverflow.com/a/50373589/13279557
-    #
-    # Setting this to None to go would mean an implementation-defined workgroups size would be used,
-    # which crashes your GPU after a few minutes when input/all_colors_shuffled.png is the input
-    # when a huge kernel_size is used (30 on my GPU).
-    # Source: https://stackoverflow.com/a/25443544/13279557
-    local_size = (workgroup_size, 1)
-
     rand1 = np.uint32(42424242)
     rand2 = np.uint32(69696969)
 
@@ -353,7 +376,12 @@ def main():
 
     saved_results = 0
 
-    last_printed_time = time.time()
+    normal_to_opaque_index_lut = get_normal_to_opaque_index_lut(pixels)
+    normal_to_opaque_index_lut_buf = cl.Buffer(
+        ctx,
+        cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
+        hostbuf=normal_to_opaque_index_lut,
+    )
 
     opencl_sort = prg.sort
 
@@ -361,6 +389,8 @@ def main():
     # opencl_sort()
     # save_result()
     # print_status()
+
+    last_printed_time = time.time()
 
     print("Running sort.cl...")
     try:
@@ -412,6 +442,7 @@ def main():
                 neighbor_totals_buf,
                 updated_buf,
                 kernel_buf,
+                normal_to_opaque_index_lut_buf,
                 rand1,
                 rand2,
             ).wait()
