@@ -36,6 +36,8 @@ https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-
 
 ## Usage
 
+You need to install OpenCL if you don't have it already, but this program should let you know if you don't have it installed yet, so follow these steps regardless:
+
 1. Clone this repository.
 2. `cd` into it.
 3. Install requirements with `pip install -r requirements.txt`
