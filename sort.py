@@ -164,6 +164,8 @@ def pack_lab_into_pixels(pixels):
 def get_pair_count(pixels):
     opaque_pixel_count = np.sum(pixels[:, :, 3] != 0)
 
+    # TODO: Get rid of this limitation by introducing x and y start offsets,
+    # and alternating them
     assert (
         opaque_pixel_count % 2 == 0
     ), "The program currently doesn't support images with an odd number of pixels"
@@ -294,8 +296,25 @@ def main():
         f"-D ITERATIONS_IN_KERNEL_PER_CALL={args.iterations_in_kernel_per_call}",
         f"-D KERNEL_RADIUS={kernel_radius}",
     )
-    # TODO: Try to find useful optimization flags
-    prg = cl.Program(ctx, Path("sort.cl").read_text()).build(options=defines)
+
+    # Source: https://man.opencl.org/clBuildProgram.html
+    # optimization_flags = (
+    #     "-cl-single-precision-constant",
+    #     "-cl-denorms-are-zero",
+    #     "-cl-fp32-correctly-rounded-divide-sqrt",
+    #     "-cl-mad-enable",
+    #     "-cl-no-signed-zeros",
+    #     "-cl-unsafe-math-optimizations",
+    #     "-cl-finite-math-only",
+    #     "-cl-fast-relaxed-math",
+    #     # "-cl-uniform-work-group-size",
+    # )
+
+    options = defines
+    # Optimization flags don't help in practice :(
+    # options += optimization_flags
+
+    prg = cl.Program(ctx, Path("sort.cl").read_text()).build(options=options)
 
     print("Packing LAB colors into input image pixels...")
     if args.color_comparison == "LAB":
