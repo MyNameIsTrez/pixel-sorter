@@ -39,7 +39,7 @@ https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-
 1. Clone this repository.
 2. `cd` into it.
 3. Install requirements with `pip install -r requirements.txt`
-4. Run `python sort.py -h` for the usage of the program
+4. Run `python sort.py -h` to see how the program is used
 
 ## How to turn the output images into videos
 
@@ -51,14 +51,4 @@ https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-
 
 ### gif
 
-#### Low quality
 `ffmpeg -framerate 10.0 -i local/media/gifs/%1d.png -s 160x160 -sws_flags neighbor -r 30 output/gif.gif`
-
-#### High quality
-Generate palette.png:
-
-`ffmpeg -v warning -f image2 -i output/heart_%04d.png -vf palettegen -y output/palette.png`
-
-Use palette.png:
-
-`ffmpeg -framerate 10.0 -i output/heart_%04d.png -i output/palette.png -filter_complex "[0:v][1:v] paletteuse" -s 390x390 -sws_flags neighbor -r 30 output/gif.gif`
