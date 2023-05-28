@@ -10,19 +10,21 @@ Before vs after:
 
 Here's the `before` palette pasted 4 times and sorted into the shape of a heart:
 
-<img src="media/heart_output.png" alt="This heart output is color sorted.">
+<video src="media/heart.mp4"></video>
 
 Here's the `before` palette pasted 64 times and sorted:
 
 <img src="media/palette_output_large.png" alt="This large output palette is color sorted.">
 
-Put a different way, it blurs an image, while retaining all of the original pixels:
+It essentially blurs an image, while retaining all of the original pixels:
 
 <p><img src="media/blurry_elephant.png" alt="Half is the input toy elephant and the other half is the blurry output toy elephant."></p>
 
-It does this by repeatedly attempting to swap two random pixels, only doing the swap if that'd place them next to pixels with more similar colors.
+## How it works
 
-At the heart of the program lies my port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `PhiloxBijectiveFunction` shuffling class.
+It repeatedly attempts to swap two random pixels, only doing the swap if that'd place them next to pixels with more similar colors.
+
+At the heart of the program lies my PyOpenCL port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `LCGBijectiveFunction` and `PhiloxBijectiveFunction` shuffling classes.
 
 ## Usage
 
@@ -31,7 +33,7 @@ At the heart of the program lies my port of [CUDA-Shuffle](https://github.com/dj
 3. Install requirements with `pip install -r requirements.txt`
 4. Run `python sort.py -h` for the usage of the program
 
-## How to turn the output images into a video
+## How to turn the output images into videos
 
 ### webm
 `ffmpeg -framerate 1 -i output/elephant_%04d.png -crf 0 -s 1024x662 -sws_flags neighbor -r 30 output/output.webm`
@@ -40,4 +42,15 @@ At the heart of the program lies my port of [CUDA-Shuffle](https://github.com/dj
 `ffmpeg -framerate 1 -i output/elephant_%04d.png -crf 0 -s 1024x662 -sws_flags neighbor -c:v libx264 -pix_fmt yuv420p -r 30 output/output.mp4`
 
 ### gif
-`ffmpeg -framerate 0.5 -i local/media/gifs/%1d.png -s 160x160 -sws_flags neighbor -r 30 output/gif.gif`
+
+#### Low quality
+`ffmpeg -framerate 10.0 -i local/media/gifs/%1d.png -s 160x160 -sws_flags neighbor -r 30 output/gif.gif`
+
+#### High quality
+Generate palette.png:
+
+`ffmpeg -v warning -f image2 -i output/heart_%04d.png -vf palettegen -y output/palette.png`
+
+Use palette.png:
+
+`ffmpeg -framerate 10.0 -i output/heart_%04d.png -i output/palette.png -filter_complex "[0:v][1:v] paletteuse" -s 390x390 -sws_flags neighbor -r 30 output/gif.gif`
