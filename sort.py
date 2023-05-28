@@ -58,12 +58,8 @@ def save_result(
     width,
     height,
     output_image_path,
-    no_overwriting_output,
-    saved_results,
-    saved_image_leading_zero_count,
     color_comparison,
 ):
-    # Copy result back to host
     saved = np.empty_like(pixels)
     cl.enqueue_copy(
         queue, saved, pixels_buf, origin=(0, 0), region=(width, height)
@@ -74,20 +70,21 @@ def save_result(
 
     saved = np.round(saved).astype(np.uint8)
 
-    # Convert the array to an image
     saved_img = Image.fromarray(saved)
 
-    saved_results += 1
+    saved_img.save(output_image_path)
 
-    # Save the image with/without overwriting the old image
+
+def get_output_image_path(
+    output_image_path,
+    no_overwriting_output,
+    saved_image_leading_zero_count,
+    saved_results,
+):
     if no_overwriting_output:
-        saved_img.save(
-            f"{output_image_path.with_suffix('')}_{saved_results:0{saved_image_leading_zero_count}d}{output_image_path.suffix}"
-        )
+        return f"{output_image_path.with_suffix('')}_{saved_results:0{saved_image_leading_zero_count}d}{output_image_path.suffix}"
     else:
-        saved_img.save(output_image_path)
-
-    return saved_results
+        return output_image_path
 
 
 def get_normal_to_opaque_index_lut(pixels):
@@ -137,7 +134,6 @@ def get_kernel(kernel_radius):
 
     kernel_radius_squared = kernel_radius**2
 
-    # Create kernel
     for dy in range(-kernel_radius, kernel_radius + 1):
         for dx in range(-kernel_radius, kernel_radius + 1):
             distance_squared = dx * dx + dy * dy
@@ -147,10 +143,7 @@ def get_kernel(kernel_radius):
             x = kernel_radius + dx
             y = kernel_radius + dy
 
-            # TODO: Not sure if it should be x, y instead?
             kernel[y, x] = 1 / (distance_squared + 1)
-
-    # print(kernel)
 
     return kernel
 
@@ -220,7 +213,7 @@ def add_parser_arguments(parser):
         "-n",
         "--no-overwriting-output",
         action="store_true",
-        help="Save all output images, instead of the default behavior of overwriting; this turns off count_colors() being ran at the end",
+        help="Save all output images, instead of the default behavior of overwriting",
     )
     parser.add_argument(
         "-z",
@@ -267,13 +260,11 @@ def main():
     queue = cl.CommandQueue(ctx)
 
     print("Loading input image...")
-    # This example code only works with RGBA images
     pixels_img = Image.open(args.input_image_path).convert("RGBA")
     pixels = np.array(pixels_img, dtype=np.float32)
 
-    # Get size of source image
-    height = pixels.shape[0]
     width = pixels.shape[1]
+    height = pixels.shape[0]
 
     kernel_radius = args.kernel_radius
     max_kernel_radius = max(width, height) - 1
@@ -288,10 +279,6 @@ def main():
     workgroup_size = args.workgroup_size
     while pair_count % workgroup_size != 0:
         workgroup_size -= 1
-
-    # Don't allow the workgroup_size to be odd
-    # if workgroup_size % 2 == 1:
-    #     workgroup_size -= 1
 
     print(f"Using workgroup-size {workgroup_size}")
 
@@ -354,8 +341,6 @@ def main():
         region=(kernel_width, kernel_height),
     ).wait()
 
-    # TODO: The rgba_format channel_type FLOAT might be lossy with large enough kernels!
-    # Make sure to try a huge kernel on big_palette.png, and let count_colors.py do its thing!
     neighbor_totals_buf = cl.Image(
         ctx, cl.mem_flags.READ_WRITE, rgba_format, shape=(width, height)
     )
@@ -385,10 +370,12 @@ def main():
 
     opencl_sort = prg.sort
 
-    # TODO: Fix wrong elephant color count with ITERATIONS_IN_KERNEL_PER_CALL 2
-    # opencl_sort()
-    # save_result()
-    # print_status()
+    output_image_path = get_output_image_path(
+        args.output_image_path,
+        args.no_overwriting_output,
+        args.saved_image_leading_zero_count,
+        saved_results,
+    )
 
     last_printed_time = time.time()
 
@@ -398,18 +385,23 @@ def main():
             python_iteration += 1
 
             if time.time() > last_printed_time + args.seconds_between_saves:
-                saved_results = save_result(
+                output_image_path = get_output_image_path(
+                    args.output_image_path,
+                    args.no_overwriting_output,
+                    args.saved_image_leading_zero_count,
+                    saved_results,
+                )
+
+                save_result(
                     pixels,
                     queue,
                     pixels_buf,
                     width,
                     height,
-                    args.output_image_path,
-                    args.no_overwriting_output,
-                    saved_results,
-                    args.saved_image_leading_zero_count,
+                    output_image_path,
                     args.color_comparison,
                 )
+                saved_results += 1
 
                 print_status(
                     saved_results,
@@ -426,13 +418,12 @@ def main():
             # Numpy handles unsigned wraparound for us
             rand1 = np.uint32(rand1 + 1)
 
-            # TODO: Why does removing the wait() suddenly fix tiny.png wrong count issues??
-
             # The .wait() at the end of this line is crucial!
             # The reason being that the OpenCL kernel call is async,
             # so without it you end up being unable to use Ctrl+C
             # to stop the program!
-            # Here's the documentation of all the arguments:
+            #
+            # Here's the documentation of the function arguments:
             # https://documen.tician.de/pyopencl/runtime_program.html#pyopencl.Kernel.__call__
             opencl_sort(
                 queue,
@@ -448,18 +439,16 @@ def main():
             ).wait()
 
     except KeyboardInterrupt:
-        saved_results = save_result(
+        save_result(
             pixels,
             queue,
             pixels_buf,
             width,
             height,
-            args.output_image_path,
-            args.no_overwriting_output,
-            saved_results,
-            args.saved_image_leading_zero_count,
+            output_image_path,
             args.color_comparison,
         )
+        saved_results += 1
 
         print_status(
             saved_results,
@@ -470,8 +459,7 @@ def main():
             pair_count,
         )
 
-        if not args.no_overwriting_output:
-            count_colors.count_colors(args.input_image_path, args.output_image_path)
+        count_colors.count_colors(args.input_image_path, output_image_path)
 
 
 if __name__ == "__main__":
