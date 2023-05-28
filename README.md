@@ -10,7 +10,7 @@ Before vs after:
 
 Here's the `before` palette pasted 4 times and sorted into the shape of a heart:
 
-<video src="media/heart.mp4"></video>
+https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/57d1d63c-6f40-4988-bf51-147c9bdf78f8
 
 Here's the `before` palette pasted 64 times and sorted:
 
