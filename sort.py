@@ -251,7 +251,7 @@ def main():
 
     if args.shuffle_mode == "PHILOX":
         raise Exception(
-            "PHILOX is broken, creating shuffle collisions, so use LCG for now"
+            "PHILOX is broken, as it's generating awful shuffle collisions. Use the shuffle mode 'LCG' for the time being. If you comment out this exception, verify() will still point out the collisions."
         )
 
     print("Initializing OpenCL...")
