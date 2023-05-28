@@ -15,7 +15,7 @@ def _get_colors_and_counts(filepath):
     return colors, counts
 
 
-def count_colors(input_image_path, output_image_path):
+def verify(input_image_path, output_image_path):
     input_colors, input_counts = _get_colors_and_counts(input_image_path)
     output_colors, output_counts = _get_colors_and_counts(output_image_path)
 
@@ -49,7 +49,7 @@ def main():
     add_parser_arguments(parser)
     args = parser.parse_args()
 
-    count_colors(args.input_image_path, args.output_image_path)
+    verify(args.input_image_path, args.output_image_path)
 
 
 if __name__ == "__main__":

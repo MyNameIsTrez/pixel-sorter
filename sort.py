@@ -10,7 +10,7 @@ from PIL import Image
 from scipy import signal
 from skimage import color
 
-import count_colors
+import verify
 
 
 def print_status(
@@ -459,7 +459,7 @@ def main():
             pair_count,
         )
 
-        count_colors.count_colors(args.input_image_path, output_image_path)
+        verify.verify(args.input_image_path, output_image_path)
 
 
 if __name__ == "__main__":
