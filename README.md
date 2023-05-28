@@ -30,3 +30,6 @@ At the heart of the program lies my port of [CUDA-Shuffle](https://github.com/dj
 
 ### mp4 (bigger files but more widely supported)
 `ffmpeg -framerate 1 -i output/elephant_%04d.png -crf 0 -s 1024x662 -sws_flags neighbor -c:v libx264 -pix_fmt yuv420p -r 30 output/output.mp4`
+
+### gif
+`ffmpeg -framerate 0.5 -i local/media/gifs/%1d.png -s 160x160 -sws_flags neighbor -r 30 output/gif.gif`
