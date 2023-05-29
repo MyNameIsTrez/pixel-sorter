@@ -70,7 +70,10 @@ Shuffles the opaque pixels of an input image, and writes the result to an output
 ### webm
 `ffmpeg -framerate 1 -i output/elephant_%04d.png -crf 0 -s 1024x662 -sws_flags neighbor -r 30 output/output.webm`
 
-### mp4 (bigger files but more widely supported)
+### mp4
+
+mp4 files are larger and of lower quality than webm files, but are more widely supported.
+
 `ffmpeg -framerate 1 -i output/elephant_%04d.png -crf 0 -s 1024x662 -sws_flags neighbor -c:v libx264 -pix_fmt yuv420p -r 30 output/output.mp4`
 
 ### gif
