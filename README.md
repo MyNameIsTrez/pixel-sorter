@@ -8,7 +8,7 @@ Before vs after:
 	<img src="media/palette_output.png" alt="This output palette is pretty much optimally sorted by color.">
 </p>
 
-Here's the `before` palette pasted 4 times and sorted into the shape of a heart:
+Here's the `before` palette pasted 4 times into the shape of a heart, and then sorted:
 
 https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/3a71be22-17b2-4e5f-8d89-183eb4c8907f
 
