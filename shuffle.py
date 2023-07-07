@@ -15,7 +15,7 @@ def shuffle(input_image_path, output_image_path):
 
     np.random.shuffle(input_arr)
 
-    output_arr = np.zeros((input_img.width, input_img.height, 4), dtype=np.uint8)
+    output_arr = np.zeros((input_img.height, input_img.width, 4), dtype=np.uint8)
 
     offset = 0
     pixel_index = 0
