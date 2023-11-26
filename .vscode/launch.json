@@ -10,6 +10,8 @@
 			"request": "launch",
 			"program": "sort.py",
 			"args": [
+				"input_npy/heart.npy",
+				"output_npy/heart.npy",
 				// "input/5120x2880_palette_shuffled.png",
 				// "output/5120x2880_palette_shuffled.png",
 				// "input/tiny.png",
@@ -26,8 +28,8 @@
 				// "output/elephant.png",
 				// "input/masked.png",
 				// "output/masked.png",
-				"input/heart.png",
-				"output/heart.png",
+				// "input/heart.png",
+				// "output/heart.png",
 				// "filled_masks/heart_1024.png",
 				// "output/heart.png",
 				// "input/odd.png",
@@ -45,8 +47,6 @@
 				"--no-overwriting-output",
 				"--saved-image-leading-zero-count",
 				"4",
-				// "--color-comparison",
-				// "RGB",
 				"--workgroup-size",
 				"8",
 			],
@@ -71,7 +71,7 @@
 			"program": "verify.py",
 			"args": [
 				"input/heart.png",
-				"output/heart_lab2rgb.png",
+				"output/heart.png",
 				// "output/heart_magick.png",
 			],
 			"justMyCode": false
@@ -94,7 +94,7 @@
 			"program": "rgb2lab.py",
 			"args": [
 				"input/heart.png",
-				"output/heart_rgb2lab.npy",
+				"input_npy/heart.npy",
 			],
 			"justMyCode": false
 		},
@@ -104,8 +104,8 @@
 			"request": "launch",
 			"program": "lab2rgb.py",
 			"args": [
-				"output/heart_rgb2lab.npy",
-				"output/heart_lab2rgb.png",
+				"output_npy/heart_0000.npy",
+				"output/heart.png",
 			],
 			"justMyCode": false
 		},

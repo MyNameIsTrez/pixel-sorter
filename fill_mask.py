@@ -56,17 +56,17 @@ def add_parser_arguments(parser):
     parser.add_argument(
         "input_image_path",
         type=Path,
-        help="The path to the input image",
+        help="Path to the input image",
     )
     parser.add_argument(
         "input_mask_image_path",
         type=Path,
-        help="The path to the input mask image",
+        help="Path to the input mask image",
     )
     parser.add_argument(
         "output_filled_mask_image_path",
         type=Path,
-        help="The path to the output filled mask image",
+        help="Path to the output filled mask image",
     )
 
 

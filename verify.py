@@ -35,12 +35,12 @@ def add_parser_arguments(parser):
     parser.add_argument(
         "input_image_path",
         type=Path,
-        help="The path to the input image",
+        help="Path to the input image",
     )
     parser.add_argument(
         "output_image_path",
         type=Path,
-        help="The path to the output image",
+        help="Path to the output image",
     )
 
 

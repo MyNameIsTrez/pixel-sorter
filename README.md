@@ -30,7 +30,7 @@ Pixels are first converted from RGB to the CIELAB color space, in order to make 
 
 > Uniform color space: a color space in which equivalent numerical differences represent equivalent visual differences, regardless of location within the color space.
 
-Here's the same heart video from before, but with color comparisons done in RGB using `--color-comparison RGB`. The ugly green splotches everywhere are most noticeable:
+Here's the same heart video from before, but with color comparisons done in RGB. The ugly green splotches everywhere are most noticeable:
 
 https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-ad10-cd145d844d64
 
