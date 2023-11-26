@@ -94,7 +94,7 @@
 			"program": "rgb2lab.py",
 			"args": [
 				"input/heart.png",
-				"output/heart_rgb2lab.png",
+				"output/heart_rgb2lab.npy",
 			],
 			"justMyCode": false
 		},
@@ -104,7 +104,7 @@
 			"request": "launch",
 			"program": "lab2rgb.py",
 			"args": [
-				"output/heart_rgb2lab.png",
+				"output/heart_rgb2lab.npy",
 				"output/heart_lab2rgb.png",
 			],
 			"justMyCode": false

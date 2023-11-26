@@ -6,23 +6,14 @@ from PIL import Image
 from skimage import color
 
 
-def verify(input_lab_image_path, output_rgb_image_path):
+def verify(input_lab_numpy_binary_path, output_rgb_image_path):
     print("Loading input LAB image...")
-    input_img = Image.open(input_lab_image_path).convert("RGBA")
-    pixels = np.array(input_img, dtype=np.float32)
-
-    pixels[:, :, 0] /= 2.55
-    pixels[:, :, 1] -= 128
-    pixels[:, :, 2] -= 128
+    pixels = np.load(input_lab_numpy_binary_path)
 
     print("Running lab2rgb()...")
     pixels[:, :, :3] = color.lab2rgb(pixels[:, :, :3])
 
     pixels[:, :, :3] *= 255
-
-    # Assert that all values lie between 0 and 255
-    # pixels[0, 0] = [256, 2, 3, 255]
-    assert np.all((pixels >= 0) & (pixels <= 255))
 
     pixels = np.round(pixels).astype(np.uint8)
 
@@ -33,9 +24,9 @@ def verify(input_lab_image_path, output_rgb_image_path):
 
 def add_parser_arguments(parser):
     parser.add_argument(
-        "input_lab_image_path",
+        "input_lab_numpy_binary_path",
         type=Path,
-        help="The path to the LAB input image",
+        help="The path to the LAB numpy input binary",
     )
     parser.add_argument(
         "output_rgb_image_path",
@@ -51,7 +42,7 @@ def main():
     add_parser_arguments(parser)
     args = parser.parse_args()
 
-    verify(args.input_lab_image_path, args.output_rgb_image_path)
+    verify(args.input_lab_numpy_binary_path, args.output_rgb_image_path)
 
 
 if __name__ == "__main__":

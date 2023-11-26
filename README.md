@@ -69,7 +69,12 @@ Shuffles the opaque pixels of an input image, and writes the result to an output
 
 You'd think doing `magick input/heart.png -colorspace Lab output/heart_magick.tif`, then `magick output/heart_magick.tif output/heart_magick.png`, and finally `python verify.py input/heart.png output/heart_magick.png` would work. It doesn't however, which is because the `.tif` file stores the Lab values as integers, rather than floats.
 
-So `rgb2lab.py` converts an RGB image to Lab floating-point values and writes it to a binary file, and `lab2rgb.py` unpacks that back to an RGB image.
+So `rgb2lab.py` converts an RGB image to Lab floating-point values and writes it to a numpy `.npy` binary file, and `lab2rgb.py` unpacks that back to an RGB image. The purpose of this binary file is that the C++ implementation `sort.cpp`, and any other implementation in any other language, doesn't need to go through the hassle of including and calling an LAB library.
+
+Example usage:
+1. `python rgb2lab.py input/heart.png output/heart_rgb2lab.npy`
+2. `python lab2rgb.py output/heart_rgb2lab.npy output/heart_lab2rgb.png`
+3. `python verify.py input/heart.png output/heart_lab2rgb.png`
 
 ## How to turn the output images into videos
 
