@@ -134,6 +134,8 @@ int main(int argc, char *argv[])
 	// TODO: Port sort.py its algorithm here
 	// pixels[0] = 42.0f;
 
+	// TODO: Use poll() to detect Ctrl+C like Python does; steal the code from webserv
+
 	int saved_results = 0;
 
 	std::ostringstream ss;
