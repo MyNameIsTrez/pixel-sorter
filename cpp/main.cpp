@@ -1,14 +1,7 @@
 #include "cnpy.h"
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
+#include <filesystem>
 #include <getopt.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <iostream>
 #include <iomanip>
 
 static void print_help(char *program_name)
@@ -38,7 +31,7 @@ static void print_help(char *program_name)
 		   "                        The workgroup size; the actually used workgroup size can be lower, and will be printed (default: 8)\n";
 }
 
-// C:/ghcup/ghc/8.10.7/mingw/bin/c++.exe -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -std=c++11 main.cpp cnpy.cpp -lz -o a.out && ./a.out "../input_npy/heart.npy" "../output_npy/heart.npy"
+// c++ -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -fsanitize=address,undefined -g -std=c++17 main.cpp cnpy.cpp -lz -o a.out && ./a.out "../input_npy/heart.npy" "../output_npy/heart.npy"
 int main(int argc, char *argv[])
 {
 	int c;
@@ -132,14 +125,8 @@ int main(int argc, char *argv[])
 	}
 
 	// TODO: Use this so "_0000" can just be appended to .stem
-	// const std::filesystem::path input_npy_path(argv[argc - 2]);
-	// const std::filesystem::path output_npy_path(argv[argc - 1]);
-
-	const std::string input_npy_path(argv[argc - 2]);
-	const std::string output_npy_path(argv[argc - 1]);
-
-	std::cout << "input_npy_path: " << input_npy_path << std::endl;
-	std::cout << "output_npy_path: " << output_npy_path << std::endl;
+	const std::filesystem::path input_npy_path(argv[argc - 2]);
+	const std::filesystem::path output_npy_path(argv[argc - 1]);
 
 	cnpy::NpyArray arr = cnpy::npy_load(input_npy_path);
 	float *pixels = arr.data<float>();
@@ -147,12 +134,16 @@ int main(int argc, char *argv[])
 	// TODO: Port sort.py its algorithm here
 	// pixels[0] = 42.0f;
 
-	std::ostringstream ss;
-	ss << std::setw(5) << std::setfill('0') << 42 << "\n";
-	std::string saved_results_str(ss.str());
-	std::cout << "saved_results_str: " << saved_results_str << std::endl;
+	int saved_results = 0;
 
-	cnpy::npy_save(output_npy_path, pixels, arr.shape, "w");
+	std::ostringstream ss;
+	ss << std::setw(4) << std::setfill('0') << saved_results;
+	std::string saved_results_str(ss.str());
+
+	// Append "_0000" to the output filename's stem
+	std::filesystem::path saved_filename(output_npy_path.stem().string() + "_" + saved_results_str + output_npy_path.extension().string());
+	std::filesystem::path saved_path(output_npy_path.parent_path() / saved_filename);
+	cnpy::npy_save(saved_path, pixels, arr.shape, "w");
 
 	return EXIT_SUCCESS;
 }
