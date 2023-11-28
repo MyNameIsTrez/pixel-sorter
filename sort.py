@@ -142,7 +142,7 @@ def add_parser_arguments(parser):
         help="Output npy file path, which can then be used by for example lab2rgb.py",
     )
     parser.add_argument(
-        "-it",
+        "-i",
         "--iterations-in-kernel-per-call",
         type=int,
         default=1,
@@ -187,7 +187,6 @@ def add_parser_arguments(parser):
 def main():
     start_time = time.time()
 
-    print("Setting up argument parser...")
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
