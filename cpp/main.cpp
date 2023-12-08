@@ -17,12 +17,10 @@ class Args
 {
 public:
 	Args(int argc, char *argv[])
-		: iterations_in_kernel_per_call(1)
-		, seconds_between_saves(1)
+		: seconds_between_saves(1)
 		, kernel_radius(100)
 		, no_overwriting_output(false)
 		, saved_image_leading_zero_count(4)
-		, workgroup_size(8)
 		, input_npy_path()
 		, output_npy_path()
 	{
@@ -35,12 +33,10 @@ public:
 			int option_index = 0;
 			static option long_options[] = {
 				{"help", no_argument, 0, 'h'},
-				{"iterations-in-kernel-per-call", required_argument, 0, 'i'},
 				{"seconds-between-saves", required_argument, 0, 's'},
 				{"kernel-radius", required_argument, 0, 'k'},
 				{"no-overwriting-output", no_argument, 0, 'n'},
 				{"saved-image-leading-zero-count", required_argument, 0, 'z'},
-				{"workgroup-size", required_argument, 0, 'w'},
 				{0, 0, 0, 0}};
 
 			c = getopt_long(argc, argv, "hi:s:k:nz:w:", long_options, &option_index);
@@ -56,11 +52,6 @@ public:
 			case 'h':
 				print_help(program_name);
 				exit(EXIT_FAILURE);
-
-			case 'i':
-				iterations_in_kernel_per_call = std::stoi(optarg);
-				std::cout << "Set iterations_in_kernel_per_call to " << iterations_in_kernel_per_call << std::endl;
-				break;
 
 			case 's':
 				seconds_between_saves = std::stoi(optarg);
@@ -80,11 +71,6 @@ public:
 			case 'z':
 				saved_image_leading_zero_count = std::stoi(optarg);
 				std::cout << "Set saved_image_leading_zero_count to " << saved_image_leading_zero_count << std::endl;
-				break;
-
-			case 'w':
-				workgroup_size = std::stoi(optarg);
-				std::cout << "Set workgroup_size to " << workgroup_size << std::endl;
 				break;
 
 			case '?':
@@ -107,12 +93,10 @@ public:
 		output_npy_path = argv[argc - 1];
 	}
 
-	int iterations_in_kernel_per_call;
 	int seconds_between_saves;
 	int kernel_radius;
 	bool no_overwriting_output;
 	int saved_image_leading_zero_count;
-	int workgroup_size;
 	std::filesystem::path input_npy_path;
 	std::filesystem::path output_npy_path;
 
@@ -120,7 +104,7 @@ private:
 	void print_help(char *program_name)
 	{
 		std::cerr
-			<< "Usage: " << program_name << " input_npy_path output_npy_path [-h] [-i ITERATIONS_IN_KERNEL_PER_CALL] [-s SECONDS_BETWEEN_SAVES] [-k KERNEL_RADIUS] [-n] [-z SAVED_IMAGE_LEADING_ZERO_COUNT] [-w WORKGROUP_SIZE]\n\n";
+			<< "Usage: " << program_name << " input_npy_path output_npy_path [-h] [-s SECONDS_BETWEEN_SAVES] [-k KERNEL_RADIUS] [-n] [-z SAVED_IMAGE_LEADING_ZERO_COUNT]\n\n";
 
 		std::cerr
 			<< "positional arguments:\n"
@@ -130,8 +114,6 @@ private:
 		std::cerr
 			<< "options:\n"
 			"  -h, --help            show this help message and exit\n"
-			"  -i ITERATIONS_IN_KERNEL_PER_CALL, --iterations-in-kernel-per-call ITERATIONS_IN_KERNEL_PER_CALL\n"
-			"                        Setting this higher than 1 can give a massive speedup, but the end of the program may tell you it messed up the output image! (default: 1)\n"
 			"  -s SECONDS_BETWEEN_SAVES, --seconds-between-saves SECONDS_BETWEEN_SAVES\n"
 			"                        How often the current output image gets saved (default: 1)\n"
 			"  -k KERNEL_RADIUS, --kernel-radius KERNEL_RADIUS\n"
@@ -139,15 +121,21 @@ private:
 			"  -n, --no-overwriting-output\n"
 			"                        Save all output images, instead of the default behavior of overwriting (default: False)\n"
 			"  -z SAVED_IMAGE_LEADING_ZERO_COUNT, --saved-image-leading-zero-count SAVED_IMAGE_LEADING_ZERO_COUNT\n"
-			"                        The number of leading zeros on saved images; this has no effect if the -n switch isn't passed! (default: 4)\n"
-			"  -w WORKGROUP_SIZE, --workgroup-size WORKGROUP_SIZE\n"
-			"                        The workgroup size; the actually used workgroup size can be lower, and will be printed (default: 8)\n";
+			"                        The number of leading zeros on saved images; this has no effect if the -n switch isn't passed! (default: 4)\n";
 	}
 };
 
-void print_status()
+void print_status(int saved_results, uint64_t prev_attemped_swaps, uint64_t attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
 {
+	const auto now = std::chrono::steady_clock::now();
+	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
 
+	std::cout
+		<< "Frame " << saved_results
+		<< ", " << seconds << " seconds"
+		<< ", " << attempted_swaps << " attempted swaps"
+		<< " (+" << attempted_swaps - prev_attemped_swaps << ")"
+		<< std::endl;
 }
 
 void save_result(float *pixels, const std::vector<size_t> &shape, const std::filesystem::path &output_npy_path)
@@ -184,17 +172,17 @@ std::filesystem::path get_output_npy_path(
 // ./a.out "../input_npy/heart.npy" "../output_npy/heart.npy"
 int main(int argc, char *argv[])
 {
+	const auto start_time = std::chrono::steady_clock::now();
+
 	std::cout << "Started program" << std::endl;
 
 	Args args(argc, argv);
 
 	// TODO: Use these
-	(void)args.iterations_in_kernel_per_call;
 	(void)args.seconds_between_saves;
 	(void)args.kernel_radius;
 	(void)args.no_overwriting_output;
 	(void)args.saved_image_leading_zero_count;
-	(void)args.workgroup_size;
 	(void)args.input_npy_path;
 	(void)args.output_npy_path;
 
@@ -209,14 +197,11 @@ int main(int argc, char *argv[])
 	// TODO: Port sort.py its algorithm here
 	// pixels[0] = 42.0f;
 
+	uint64_t attemped_swaps = 0;
+	uint64_t prev_attemped_swaps = 0;
+
 	int saved_results = 0;
 	(void)saved_results; // TODO: Use
-
-	assert(signal(SIGINT, sigint_handler_running) != SIG_ERR);
-	while (running)
-	{
-
-	}
 
 	const std::filesystem::path output_npy_path = get_output_npy_path(
 		args.output_npy_path,
@@ -224,8 +209,38 @@ int main(int argc, char *argv[])
 		args.saved_image_leading_zero_count,
 		saved_results
 	);
+
+	auto last_printed_time = std::chrono::steady_clock::now();
+
+	assert(signal(SIGINT, sigint_handler_running) != SIG_ERR);
+	while (running)
+	{
+		// TODO: Make sure getting the time *every single loop* here isn't too slow
+		const auto now = std::chrono::steady_clock::now();
+
+		if (now > last_printed_time + std::chrono::seconds(args.seconds_between_saves))
+		{
+			const std::filesystem::path output_npy_path = get_output_npy_path(
+				args.output_npy_path,
+				args.no_overwriting_output,
+				args.saved_image_leading_zero_count,
+				saved_results
+			);
+
+			save_result(pixels, arr.shape, output_npy_path);
+			saved_results += 1;
+
+			print_status(saved_results, prev_attemped_swaps, attemped_swaps, start_time);
+
+			last_printed_time = std::chrono::steady_clock::now();
+			prev_attemped_swaps = attemped_swaps;
+		}
+	}
+
 	save_result(pixels, arr.shape, output_npy_path);
-	print_status();
+	saved_results += 1;
+
+	print_status(saved_results, prev_attemped_swaps, attemped_swaps, start_time);
 
 	std::cout << "Gootbye" << std::endl;
 
