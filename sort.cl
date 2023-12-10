@@ -229,10 +229,6 @@ kernel void sort(
 	int i1 = gid * 2;
 	int i2 = i1 + 1;
 
-	// TODO: Maybe base this off of the gid?
-	// TODO: Ask the author what I should do here instead, since this has wrong color counts
-	uint2 rand_state = (uint2)(rand1, rand2);
-
 	for (int iteration = 0; iteration < ITERATIONS_IN_KERNEL_PER_CALL; iteration++) {
 		// TODO: Is this defined to wrap around in OpenCL?
 		rand1++;

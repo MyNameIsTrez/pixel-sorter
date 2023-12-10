@@ -6,8 +6,64 @@
 #include <signal.h>
 
 static volatile sig_atomic_t running = true;
+static void sigint_handler_running(int signum)
+{
+	(void)signum;
+	running = false;
+}
 
-void sort(const std::vector<float> &pixels, const std::vector<float> &neighbor_totals, const std::vector<bool> &updated, const std::vector<float> &kernel, const std::vector<size_t> &normal_to_opaque_index_lut, uint32_t rand1, uint32_t rand2)
+uint64_t round_up_to_power_of_2(uint64_t n)
+{
+	// If n isn't a power of 2 already
+	if(n & (n - 1))
+	{
+		uint64_t i;
+
+		// TODO: Can "1ull" be replaced with "1" everywhere here?
+
+		// Count the number of times n can be right-shifted
+		for(i = 0; n > 1; i++)
+		{
+			n >>= 1ull;
+		}
+
+		// Use that number of times to round it up to a power of 2
+		return 1ull << (i + 1ull);
+	}
+
+	return n;
+}
+
+uint64_t lcg(uint64_t capacity, uint64_t val, uint32_t multiplier_rand, uint32_t addition_rand)
+{
+	uint64_t modulus = round_up_to_power_of_2(capacity);
+
+	// Must be odd so it is coprime to modulus
+	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
+
+	uint64_t addition = addition_rand % modulus;
+
+	// Modulus must be power of two
+	assert((modulus & (modulus - 1)) == 0);
+
+	return ((val * multiplier) + addition) & (modulus - 1);
+}
+
+int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_pixel_count)
+{
+	assert(i < opaque_pixel_count);
+
+	int shuffled = i;
+
+	do
+	{
+		shuffled = lcg(opaque_pixel_count, shuffled, rand1, rand2);
+	} while (shuffled >= opaque_pixel_count);
+
+	return shuffled;
+}
+
+void sort(const std::vector<float> &pixels, const std::vector<float> &neighbor_totals, const std::vector<bool> &updated, const std::vector<float> &kernel, const std::vector<size_t> &normal_to_opaque_index_lut, uint32_t rand1, uint32_t rand2, int pair_count, uint64_t &attempted_swaps)
 {
 	// TODO: Remove these
 	(void)pixels;
@@ -18,11 +74,55 @@ void sort(const std::vector<float> &pixels, const std::vector<float> &neighbor_t
 	(void)rand1;
 	(void)rand2;
 
-	// TODO: Port sort.py its algorithm here
-	// pixels[0] = 42.0f;
+	int opaque_pixel_count = pair_count * 2;
+
+	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
+	for (int i1 = 0; i1 < pair_count; i1 += 2)
+	{
+		int i2 = i1 + 1;
+
+		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count);
+		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2, opaque_pixel_count);
+
+		// TODO: Remove these
+		(void)shuffled_i1;
+		(void)shuffled_i2;
+
+		attempted_swaps++;
+	}
 }
 
-void print_status(int saved_results, uint64_t prev_attemped_swaps, uint64_t attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
+std::string humanize_uint64(uint64_t n)
+{
+	std::ostringstream ss;
+	ss << std::fixed << std::setprecision(1);
+
+	if (n < 1'000)
+	{
+		ss << n;
+		return ss.str();
+	}
+	else if (n < 1'000'000)
+	{
+		double d = n / 1'000.0;
+		ss << d;
+		return ss.str() + " thousand";
+	}
+	else if (n < 1'000'000'000)
+	{
+		double d = n / 1'000'000.0;
+		ss << d;
+		return ss.str() + " million";
+	}
+	else
+	{
+		double d = n / 1'000'000'000.0;
+		ss << d;
+		return ss.str() + " billion";
+	}
+}
+
+void print_status(int saved_results, uint64_t prev_attempted_swaps, uint64_t attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
 {
 	const auto now = std::chrono::steady_clock::now();
 	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
@@ -30,20 +130,14 @@ void print_status(int saved_results, uint64_t prev_attemped_swaps, uint64_t atte
 	std::cout
 		<< "Frame " << saved_results
 		<< ", " << seconds << " seconds"
-		<< ", " << attempted_swaps << " attempted swaps"
-		<< " (+" << attempted_swaps - prev_attemped_swaps << ")"
+		<< ", " << humanize_uint64(attempted_swaps) << " attempted swaps"
+		<< " (+" << humanize_uint64(attempted_swaps - prev_attempted_swaps) << ")"
 		<< std::endl;
 }
 
 void save_result(const std::vector<float> &pixels, const std::vector<size_t> &shape, const std::filesystem::path &output_npy_path)
 {
 	cnpy::npy_save(output_npy_path, pixels.data(), shape, "w");
-}
-
-static void sigint_handler_running(int signum)
-{
-	(void)signum;
-	running = false;
 }
 
 std::filesystem::path get_output_npy_path(
@@ -325,8 +419,8 @@ int main(int argc, char *argv[])
     uint32_t rand1 = 42424242;
     uint32_t rand2 = 69696969;
 
-	uint64_t attemped_swaps = 0;
-	uint64_t prev_attemped_swaps = 0;
+	uint64_t attempted_swaps = 0;
+	uint64_t prev_attempted_swaps = 0;
 
 	int saved_results = 0;
 
@@ -359,22 +453,22 @@ int main(int argc, char *argv[])
 			save_result(pixels, arr.shape, output_npy_path);
 			saved_results += 1;
 
-			print_status(saved_results, prev_attemped_swaps, attemped_swaps, start_time);
+			print_status(saved_results, prev_attempted_swaps, attempted_swaps, start_time);
 
 			last_printed_time = std::chrono::steady_clock::now();
-			prev_attemped_swaps = attemped_swaps;
+			prev_attempted_swaps = attempted_swaps;
 		}
 
 		// Using unsigned wraparound
 		rand1++;
 
-		sort(pixels, neighbor_totals, updated, kernel, normal_to_opaque_index_lut, rand1, rand2);
+		sort(pixels, neighbor_totals, updated, kernel, normal_to_opaque_index_lut, rand1, rand2, pair_count, attempted_swaps);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
 	saved_results += 1;
 
-	print_status(saved_results, prev_attemped_swaps, attemped_swaps, start_time);
+	print_status(saved_results, prev_attempted_swaps, attempted_swaps, start_time);
 
 	std::cout << "Gootbye" << std::endl;
 
