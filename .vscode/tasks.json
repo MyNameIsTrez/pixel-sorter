@@ -1,0 +1,30 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build cpp/main.cpp",
+			"command": "c++",
+			"type": "shell",
+			"args": [
+				"-Wall",
+				"-Wextra",
+				"-Werror",
+				"-Wpedantic",
+				"-Wfatal-errors",
+				"-fsanitize=address,undefined",
+				"-g",
+				"-std=c++17",
+				"cpp/main.cpp",
+				"cpp/cnpy.cpp",
+				"-lz",
+			],
+			"problemMatcher": [
+				"$tsc"
+			],
+			"presentation": {
+				"reveal": "always"
+			},
+			"group": "build"
+		}
+	]
+}

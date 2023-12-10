@@ -568,8 +568,6 @@ private:
 	}
 };
 
-// c++ -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -fsanitize=address,undefined -g -std=c++17 main.cpp cnpy.cpp -lz -o a.out && ./a.out "../input_npy/heart.npy" "../output_npy/heart.npy"
-// ./a.out "../input_npy/heart.npy" "../output_npy/heart.npy"
 int main(int argc, char *argv[])
 {
 	const auto start_time = std::chrono::steady_clock::now();

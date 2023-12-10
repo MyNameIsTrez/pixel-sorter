@@ -5,7 +5,19 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "sort",
+			"name": "sort.cpp",
+			"type": "cppdbg",
+			"request": "launch",
+			"cwd": ".",
+			"program": "${workspaceRoot}/a.out",
+			"args": [
+				"../input_npy/heart.npy",
+				"../output_npy/heart.npy",
+			],
+			"preLaunchTask": "Build cpp/main.cpp"
+		},
+		{
+			"name": "sort.py",
 			"type": "python",
 			"request": "launch",
 			"program": "sort.py",
