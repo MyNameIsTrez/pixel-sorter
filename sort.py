@@ -79,7 +79,7 @@ def initialize_neighbor_totals_buf(
     print("Running convolve(pixels, kernel)...")
 
     # [:, :, :3] means only grabbing the R out of RGBA
-    # Play around with kernel_tests.py to see how convolve() works.
+    # Play around with extra/kernel_tests.py to see how convolve() works.
     # Source: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.convolve.html
     neighbor_totals = signal.convolve(pixels, kernel[:, :, :3], mode="same")
 

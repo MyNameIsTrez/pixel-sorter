@@ -53,3 +53,7 @@ print(signal.convolve(pixels, kernel[:, :, :1], mode="same"))
 # fftconvolve reportedly can be faster on extremely huge arrays, but can also cause out-of-memory:
 # https://stackoverflow.com/a/15217324/13279557
 # print(signal.fftconvolve(pixels, kernel[:, :, :1], mode="same"))
+
+# pixels isn't modified by the signal.convolve()
+print("pixels:")
+print(pixels)

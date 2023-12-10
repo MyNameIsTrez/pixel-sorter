@@ -7,10 +7,176 @@
 
 static volatile sig_atomic_t running = true;
 
+void sort(const std::vector<float> &pixels, const std::vector<float> &neighbor_totals, const std::vector<bool> &updated, const std::vector<float> &kernel, const std::vector<size_t> &normal_to_opaque_index_lut, uint32_t rand1, uint32_t rand2)
+{
+	// TODO: Remove these
+	(void)pixels;
+	(void)neighbor_totals;
+	(void)updated;
+	(void)kernel;
+	(void)normal_to_opaque_index_lut;
+	(void)rand1;
+	(void)rand2;
+
+	// TODO: Port sort.py its algorithm here
+	// pixels[0] = 42.0f;
+}
+
+void print_status(int saved_results, uint64_t prev_attemped_swaps, uint64_t attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
+{
+	const auto now = std::chrono::steady_clock::now();
+	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
+
+	std::cout
+		<< "Frame " << saved_results
+		<< ", " << seconds << " seconds"
+		<< ", " << attempted_swaps << " attempted swaps"
+		<< " (+" << attempted_swaps - prev_attemped_swaps << ")"
+		<< std::endl;
+}
+
+void save_result(const std::vector<float> &pixels, const std::vector<size_t> &shape, const std::filesystem::path &output_npy_path)
+{
+	cnpy::npy_save(output_npy_path, pixels.data(), shape, "w");
+}
+
 static void sigint_handler_running(int signum)
 {
 	(void)signum;
 	running = false;
+}
+
+std::filesystem::path get_output_npy_path(
+		const std::filesystem::path &output_npy_path,
+		bool no_overwriting_output,
+		int saved_image_leading_zero_count,
+		int saved_results)
+{
+    if (no_overwriting_output)
+	{
+		// Create the string "_0000", assuming saved_results is 0 and saved_image_leading_zero_count is 4
+		std::ostringstream ss;
+		ss << std::setw(saved_image_leading_zero_count) << std::setfill('0') << saved_results;
+		std::string saved_results_str(ss.str());
+
+		// Append "_0000" to the output filename's stem
+		std::filesystem::path saved_filename(output_npy_path.stem().string() + "_" + saved_results_str + output_npy_path.extension().string());
+
+		// Stitch the parent directory path back to the front
+		return output_npy_path.parent_path() / saved_filename;
+	}
+    else
+	{
+        return output_npy_path;
+	}
+}
+
+std::vector<size_t> get_normal_to_opaque_index_lut(const std::vector<float> &pixels)
+{
+    std::vector<size_t> normal_to_opaque_index_lut;
+
+    size_t offset = 0;
+	for (size_t i = 3; i < pixels.size(); i += 4)
+	{
+		float alpha = pixels[i];
+
+		// TODO: Check that this produces the same result as sort.py's version of this code
+		if (alpha != 0)
+		{
+			normal_to_opaque_index_lut.push_back(offset);
+		}
+
+		offset += 1;
+	}
+
+    return normal_to_opaque_index_lut;
+}
+
+std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, const std::vector<float> &kernel, int width, int height, int kernel_radius)
+{
+	std::vector<float> neighbor_totals(pixels.size(), 0);
+
+	int kernel_diameter = kernel_radius * 2 + 1;
+
+	// Play around with extra/kernel_tests.cpp to see how this convolving works
+	// For every pixel
+	for (int py = 0; py < height; py++)
+	{
+		for (int px = 0; px < width; px++)
+		{
+			float pr = pixels.at((px + py * width) * 2);
+			float pg = pixels.at((px + py * width) * 2 + 1);
+
+			// Apply the kernel
+			for (int kdy = -kernel_radius; kdy < kernel_radius + 1; kdy++)
+			{
+				for (int kdx = -kernel_radius; kdx < kernel_radius + 1; kdx++)
+				{
+					int x = px + kdx;
+					int y = py + kdy;
+					if (x < 0 || y < 0 || x >= width || y >= height)
+					{
+						continue;
+					}
+
+					int kx = kernel_radius + kdx;
+					int ky = kernel_radius + kdy;
+					float k = kernel.at(kx + ky * kernel_diameter);
+
+					neighbor_totals.at((x + y * width) * 2) += pr * k;
+					neighbor_totals.at((x + y * width) * 2 + 1) += pg * k;
+				}
+			}
+		}
+	}
+
+	return neighbor_totals;
+}
+
+// TODO: Profile whether it's faster to just recreate the kernel on the fly,
+// TODO: since we still need these same loops to loop over it anyways!
+std::vector<float> get_kernel(int kernel_radius)
+{
+    int kernel_diameter = kernel_radius * 2 + 1;
+
+	std::vector<float> kernel(kernel_diameter * kernel_diameter, 0);
+
+	for (int dy = -kernel_radius; dy < kernel_radius + 1; dy++)
+	{
+		for (int dx = -kernel_radius; dx < kernel_radius + 1; dx++)
+		{
+            int distance_squared = dx * dx + dy * dy;
+            if (distance_squared > kernel_radius * kernel_radius)
+			{
+                continue;
+			}
+
+            int x = kernel_radius + dx;
+            int y = kernel_radius + dy;
+
+            kernel.at(x + y * kernel_diameter) = 1 / static_cast<float>(distance_squared + 1);
+		}
+	}
+
+	return kernel;
+}
+
+int get_pair_count(const std::vector<float> &pixels)
+{
+	int opaque_pixel_count = 0;
+	for (size_t i = 3; i < pixels.size(); i += 4)
+	{
+		if (pixels[i] != 0)
+		{
+			opaque_pixel_count++;
+		}
+	}
+
+    // TODO: Get rid of this limitation by introducing x and y start offsets,
+    // and alternating them
+	assert(opaque_pixel_count % 2 == 0 && "The program currently doesn't support images with an odd number of pixels");
+
+	return opaque_pixel_count / 2;
 }
 
 class Args
@@ -125,49 +291,6 @@ private:
 	}
 };
 
-void print_status(int saved_results, uint64_t prev_attemped_swaps, uint64_t attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
-{
-	const auto now = std::chrono::steady_clock::now();
-	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
-
-	std::cout
-		<< "Frame " << saved_results
-		<< ", " << seconds << " seconds"
-		<< ", " << attempted_swaps << " attempted swaps"
-		<< " (+" << attempted_swaps - prev_attemped_swaps << ")"
-		<< std::endl;
-}
-
-void save_result(float *pixels, const std::vector<size_t> &shape, const std::filesystem::path &output_npy_path)
-{
-	cnpy::npy_save(output_npy_path, pixels, shape, "w");
-}
-
-std::filesystem::path get_output_npy_path(
-		const std::filesystem::path &output_npy_path,
-		bool no_overwriting_output,
-		int saved_image_leading_zero_count,
-		int saved_results)
-{
-    if (no_overwriting_output)
-	{
-		// Create the string "_0000", assuming saved_results is 0 and saved_image_leading_zero_count is 4
-		std::ostringstream ss;
-		ss << std::setw(saved_image_leading_zero_count) << std::setfill('0') << saved_results;
-		std::string saved_results_str(ss.str());
-
-		// Append "_0000" to the output filename's stem
-		std::filesystem::path saved_filename(output_npy_path.stem().string() + "_" + saved_results_str + output_npy_path.extension().string());
-
-		// Stitch the parent directory path back to the front
-		return output_npy_path.parent_path() / saved_filename;
-	}
-    else
-	{
-        return output_npy_path;
-	}
-}
-
 // c++ -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -fsanitize=address,undefined -g -std=c++17 main.cpp cnpy.cpp -lz -o a.out && ./a.out "../input_npy/heart.npy" "../output_npy/heart.npy"
 // ./a.out "../input_npy/heart.npy" "../output_npy/heart.npy"
 int main(int argc, char *argv[])
@@ -178,30 +301,36 @@ int main(int argc, char *argv[])
 
 	Args args(argc, argv);
 
-	// TODO: Use these
-	(void)args.seconds_between_saves;
-	(void)args.kernel_radius;
-	(void)args.no_overwriting_output;
-	(void)args.saved_image_leading_zero_count;
-	(void)args.input_npy_path;
-	(void)args.output_npy_path;
-
-	// TODO: Use this so "_0000" can just be appended to .stem
 	cnpy::NpyArray arr = cnpy::npy_load(args.input_npy_path);
-	// TODO: Won't this create a dangling pointer or smth?
-	float *pixels = arr.data<float>();
+	// This won't ever turn into a dangling pointer, since the vector stays a constant size
+	std::vector<float> pixels = arr.as_vec<float>();
 
-	// size_t width = arr.shape.at(0);
-	// size_t height = arr.shape.at(1);
+	int width = arr.shape.at(0);
+	int height = arr.shape.at(1);
 
-	// TODO: Port sort.py its algorithm here
-	// pixels[0] = 42.0f;
+	int kernel_radius = args.kernel_radius;
+	int max_kernel_radius = std::max(width, height) - 1;
+	kernel_radius = std::min(kernel_radius, max_kernel_radius);
+    std::cout << "Using kernel radius " << kernel_radius << std::endl;
+
+	int pair_count = get_pair_count(pixels);
+    std::cout << "pair_count is " << pair_count << std::endl;
+
+	std::vector<float> kernel = get_kernel(kernel_radius);
+
+	std::vector<float> neighbor_totals = get_neighbor_totals(pixels, kernel, width, height, kernel_radius);
+
+	std::vector<bool> updated(width * height, 0);
+
+    uint32_t rand1 = 42424242;
+    uint32_t rand2 = 69696969;
 
 	uint64_t attemped_swaps = 0;
 	uint64_t prev_attemped_swaps = 0;
 
 	int saved_results = 0;
-	(void)saved_results; // TODO: Use
+
+	std::vector<size_t> normal_to_opaque_index_lut = get_normal_to_opaque_index_lut(pixels);
 
 	const std::filesystem::path output_npy_path = get_output_npy_path(
 		args.output_npy_path,
@@ -215,7 +344,7 @@ int main(int argc, char *argv[])
 	assert(signal(SIGINT, sigint_handler_running) != SIG_ERR);
 	while (running)
 	{
-		// TODO: Make sure getting the time *every single loop* here isn't too slow
+		// TODO: Profile whether getting the time here *every single loop* isn't too slow
 		const auto now = std::chrono::steady_clock::now();
 
 		if (now > last_printed_time + std::chrono::seconds(args.seconds_between_saves))
@@ -235,6 +364,11 @@ int main(int argc, char *argv[])
 			last_printed_time = std::chrono::steady_clock::now();
 			prev_attemped_swaps = attemped_swaps;
 		}
+
+		// Using unsigned wraparound
+		rand1++;
+
+		sort(pixels, neighbor_totals, updated, kernel, normal_to_opaque_index_lut, rand1, rand2);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
