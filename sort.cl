@@ -49,7 +49,6 @@ void mark_neighbors_as_updated(
 }
 
 float get_squared_color_difference(
-	read_only image2d_t pixels,
 	float4 pixel,
 	float4 neighbor_pixel
 ) {
@@ -83,8 +82,7 @@ void update_neighbor_total(
 	read_only image2d_t pixels,
 	write_only image2d_t neighbor_totals,
 	read_only image2d_t kernel_,
-	int2 center,
-	int gid
+	int2 center
 ) {
 	float4 neighbor_total = 0;
 	int2 kernel_center = (int2){KERNEL_RADIUS, KERNEL_RADIUS};
@@ -98,7 +96,6 @@ void update_neighbor_total(
 
 	for (int dy = dy_min; dy <= dy_max; dy++) {
 		for (int dx = dx_min; dx <= dx_max; dx++) {
-
 			int2 offset = (int2){dx, dy};
 
 			int2 neighbor = center + offset;
@@ -193,22 +190,20 @@ int get_shuffled_index(
 }
 
 bool should_swap(
-	read_only image2d_t pixels,
 	read_only image2d_t neighbor_totals,
 	float4 pixel1,
 	float4 pixel2,
 	int2 pos1,
-	int2 pos2,
-	int gid
+	int2 pos2
 ) {
 	float4 i1_neighbor_total = get_pixel(neighbor_totals, pos1);
-	float i1_old_score = get_squared_color_difference(pixels, pixel1, i1_neighbor_total);
-	float i1_new_score = get_squared_color_difference(pixels, pixel2, i1_neighbor_total);
+	float i1_old_score = get_squared_color_difference(pixel1, i1_neighbor_total);
+	float i1_new_score = get_squared_color_difference(pixel2, i1_neighbor_total);
 	float i1_score_difference = -i1_old_score + i1_new_score;
 
 	float4 i2_neighbor_total = get_pixel(neighbor_totals, pos2);
-	float i2_old_score = get_squared_color_difference(pixels, pixel2, i2_neighbor_total);
-	float i2_new_score = get_squared_color_difference(pixels, pixel1, i2_neighbor_total);
+	float i2_old_score = get_squared_color_difference(pixel2, i2_neighbor_total);
+	float i2_new_score = get_squared_color_difference(pixel1, i2_neighbor_total);
 	float i2_score_difference = -i2_old_score + i2_new_score;
 
 	float score_difference = i1_score_difference + i2_score_difference;
@@ -253,8 +248,7 @@ kernel void sort(
 
 		// printf("i1: %d, i2: %d, shuffled_i1: %d, shuffled_i2: %d, pos1: {%d,%d}, pos2: {%d,%d}", i1, i2, shuffled_i1, shuffled_i2, pos1.x, pos1.y, pos2.x, pos2.y);
 
-		// TODO: Stop unnecessarily passing gid to a bunch of functions!
-		bool swapping = should_swap(pixels, neighbor_totals, pixel1, pixel2, pos1, pos2, gid);
+		bool swapping = should_swap(neighbor_totals, pixel1, pixel2, pos1, pos2);
 
 		// TODO: Not sure which of these two flags I should use,
 		// cause either seems to work.
@@ -272,11 +266,11 @@ kernel void sort(
 		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
 		if (swapping || get_pixel(updated, pos1).x != 0) {
-			update_neighbor_total(pixels, neighbor_totals, kernel_, pos1, gid);
+			update_neighbor_total(pixels, neighbor_totals, kernel_, pos1);
 		}
 
 		if (swapping || get_pixel(updated, pos2).x != 0) {
-			update_neighbor_total(pixels, neighbor_totals, kernel_, pos2, gid);
+			update_neighbor_total(pixels, neighbor_totals, kernel_, pos2);
 		}
 
 		barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);

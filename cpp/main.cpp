@@ -5,6 +5,45 @@
 #include <iomanip>
 #include <signal.h>
 
+struct xy
+{
+	int x;
+	int y;
+
+	xy operator+(const xy &other)
+	{
+		return {
+			x + other.x,
+			y + other.y
+		};
+	}
+};
+
+struct rgb
+{
+	float r;
+	float g;
+	float b;
+
+	rgb operator*(float multiplier)
+	{
+		return {
+			r * multiplier,
+			g * multiplier,
+			b * multiplier
+		};
+	}
+
+	rgb operator+=(const rgb &other)
+	{
+		r += other.r;
+		g += other.g;
+		b += other.b;
+
+		return *this;
+	}
+};
+
 static volatile sig_atomic_t running = true;
 static void sigint_handler_running(int signum)
 {
@@ -12,7 +51,133 @@ static void sigint_handler_running(int signum)
 	running = false;
 }
 
-uint64_t round_up_to_power_of_2(uint64_t n)
+static size_t get_index(xy pos, int width)
+{
+	return pos.x + pos.y * width;
+}
+
+static rgb get_pixel(const std::vector<float> &pixels, xy pos, int width)
+{
+	size_t i = get_index(pos, width) * 4;
+
+	float r = pixels[i + 0];
+	float g = pixels[i + 1];
+	float b = pixels[i + 2];
+
+	return {r, g, b};
+}
+
+static void set_pixel(std::vector<float> &pixels, xy pos, int width, rgb rgb)
+{
+	size_t i = get_index(pos, width) * 4;
+
+	pixels[i + 0] = rgb.r;
+	pixels[i + 1] = rgb.g;
+	pixels[i + 2] = rgb.b;
+}
+
+void update_neighbor_total(const std::vector<float> &pixels, std::vector<float> &neighbor_totals, const std::vector<float> &kernel, xy center, int width, int height, int kernel_radius)
+{
+	rgb neighbor_total = {};
+	xy kernel_center = {kernel_radius, kernel_radius};
+
+	// TODO: By padding the input image, it should be possible to get rid of these bounds variables
+	int dy_min = -std::min(center.y, kernel_radius);
+	int dy_max = std::min(height - 1 - center.y, kernel_radius);
+
+	int dx_min = -std::min(center.x, kernel_radius);
+	int dx_max = std::min(width - 1 - center.x, kernel_radius);
+
+	for (int dy = dy_min; dy <= dy_max; dy++)
+	{
+		for (int dx = dx_min; dx <= dx_max; dx++)
+		{
+			xy offset = {dx, dy};
+
+			xy neighbor = center + offset;
+
+            int distance_squared = dx * dx + dy * dy;
+			if (distance_squared > kernel_radius * kernel_radius)
+			{
+				continue;
+			}
+
+			rgb neighbor_pixel = get_pixel(pixels, neighbor, width);
+
+			xy kernel_pos = kernel_center + offset;
+
+			float weight = kernel[get_index(kernel_pos, width)];
+
+			neighbor_total += neighbor_pixel * weight;
+		}
+	}
+
+	set_pixel(neighbor_totals, center, width, neighbor_total);
+}
+
+static void mark_neighbors_as_updated(std::vector<bool> &updated, xy center, int width, int height, int kernel_radius)
+{
+	// TODO: By padding the input image, it should be possible to get rid of these bounds variables
+	int dy_min = -std::min(center.y, kernel_radius);
+	int dy_max = std::min(height - 1 - center.y, kernel_radius);
+
+	int dx_min = -std::min(center.x, kernel_radius);
+	int dx_max = std::min(width - 1 - center.x, kernel_radius);
+
+	for (int dy = dy_min; dy <= dy_max; dy++)
+	{
+		for (int dx = dx_min; dx <= dx_max; dx++)
+		{
+
+			xy neighbor = {center.x + dx, center.y + dy};
+
+            int distance_squared = dx * dx + dy * dy;
+			if (distance_squared > kernel_radius * kernel_radius)
+			{
+				continue;
+			}
+
+			updated[get_index(neighbor, width)] = true;
+		}
+	}
+}
+
+static float get_squared_color_difference(rgb pixel, rgb neighbor_pixel)
+{
+	float r_diff = pixel.r - neighbor_pixel.r;
+	float g_diff = pixel.g - neighbor_pixel.g;
+	float b_diff = pixel.b - neighbor_pixel.b;
+
+	return (
+		r_diff * r_diff +
+		g_diff * g_diff +
+		b_diff * b_diff
+	);
+}
+
+static bool should_swap(std::vector<float> &neighbor_totals, rgb pixel1, rgb pixel2, xy pos1, xy pos2, int width)
+{
+	rgb i1_neighbor_total = get_pixel(neighbor_totals, pos1, width);
+	float i1_old_score = get_squared_color_difference(pixel1, i1_neighbor_total);
+	float i1_new_score = get_squared_color_difference(pixel2, i1_neighbor_total);
+	float i1_score_difference = -i1_old_score + i1_new_score;
+
+	rgb i2_neighbor_total = get_pixel(neighbor_totals, pos2, width);
+	float i2_old_score = get_squared_color_difference(pixel2, i2_neighbor_total);
+	float i2_new_score = get_squared_color_difference(pixel1, i2_neighbor_total);
+	float i2_score_difference = -i2_old_score + i2_new_score;
+
+	float score_difference = i1_score_difference + i2_score_difference;
+
+	return score_difference < 0;
+}
+
+static xy get_pos(int i, int width)
+{
+	return {i % width, i / width};
+}
+
+static uint64_t round_up_to_power_of_2(uint64_t n)
 {
 	// If n isn't a power of 2 already
 	if(n & (n - 1))
@@ -34,7 +199,7 @@ uint64_t round_up_to_power_of_2(uint64_t n)
 	return n;
 }
 
-uint64_t lcg(uint64_t capacity, uint64_t val, uint32_t multiplier_rand, uint32_t addition_rand)
+static uint64_t lcg(uint64_t capacity, uint64_t val, uint32_t multiplier_rand, uint32_t addition_rand)
 {
 	uint64_t modulus = round_up_to_power_of_2(capacity);
 
@@ -49,7 +214,7 @@ uint64_t lcg(uint64_t capacity, uint64_t val, uint32_t multiplier_rand, uint32_t
 	return ((val * multiplier) + addition) & (modulus - 1);
 }
 
-int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_pixel_count)
+static int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_pixel_count)
 {
 	assert(i < opaque_pixel_count);
 
@@ -63,17 +228,8 @@ int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_pixel_c
 	return shuffled;
 }
 
-void sort(const std::vector<float> &pixels, const std::vector<float> &neighbor_totals, const std::vector<bool> &updated, const std::vector<float> &kernel, const std::vector<size_t> &normal_to_opaque_index_lut, uint32_t rand1, uint32_t rand2, int pair_count, uint64_t &attempted_swaps)
+static void sort(std::vector<float> &pixels, std::vector<float> &neighbor_totals, std::vector<bool> &updated, const std::vector<float> &kernel, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int pair_count, int kernel_radius, uint64_t &attempted_swaps)
 {
-	// TODO: Remove these
-	(void)pixels;
-	(void)neighbor_totals;
-	(void)updated;
-	(void)kernel;
-	(void)normal_to_opaque_index_lut;
-	(void)rand1;
-	(void)rand2;
-
 	int opaque_pixel_count = pair_count * 2;
 
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
@@ -84,15 +240,44 @@ void sort(const std::vector<float> &pixels, const std::vector<float> &neighbor_t
 		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count);
 		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2, opaque_pixel_count);
 
-		// TODO: Remove these
-		(void)shuffled_i1;
-		(void)shuffled_i2;
+		shuffled_i1 = normal_to_opaque_index_lut[shuffled_i1];
+		shuffled_i2 = normal_to_opaque_index_lut[shuffled_i2];
+
+		xy pos1 = get_pos(shuffled_i1, width);
+		xy pos2 = get_pos(shuffled_i2, width);
+
+		set_pixel(pixels, pos1, width, {});
+		set_pixel(pixels, pos2, width, {});
+
+		rgb pixel1 = get_pixel(pixels, pos1, width);
+		rgb pixel2 = get_pixel(pixels, pos2, width);
+
+		bool swapping = should_swap(neighbor_totals, pixel1, pixel2, pos1, pos2, width);
+
+		if (swapping)
+		{
+			set_pixel(pixels, pos1, width, pixel2);
+			mark_neighbors_as_updated(updated, pos1, width, height, kernel_radius);
+
+			set_pixel(pixels, pos2, width, pixel1);
+			mark_neighbors_as_updated(updated, pos2, width, height, kernel_radius);
+		}
+
+		if (swapping || updated[get_index(pos1, width)])
+		{
+			update_neighbor_total(pixels, neighbor_totals, kernel, pos1, width, height, kernel_radius);
+		}
+
+		if (swapping || updated[get_index(pos2, width)])
+		{
+			update_neighbor_total(pixels, neighbor_totals, kernel, pos2, width, height, kernel_radius);
+		}
 
 		attempted_swaps++;
 	}
 }
 
-std::string humanize_uint64(uint64_t n)
+static std::string humanize_uint64(uint64_t n)
 {
 	std::ostringstream ss;
 	ss << std::fixed << std::setprecision(1);
@@ -114,15 +299,13 @@ std::string humanize_uint64(uint64_t n)
 		ss << d;
 		return ss.str() + " million";
 	}
-	else
-	{
-		double d = n / 1'000'000'000.0;
-		ss << d;
-		return ss.str() + " billion";
-	}
+
+	double d = n / 1'000'000'000.0;
+	ss << d;
+	return ss.str() + " billion";
 }
 
-void print_status(int saved_results, uint64_t prev_attempted_swaps, uint64_t attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
+static void print_status(int saved_results, uint64_t prev_attempted_swaps, uint64_t attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
 {
 	const auto now = std::chrono::steady_clock::now();
 	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
@@ -135,12 +318,12 @@ void print_status(int saved_results, uint64_t prev_attempted_swaps, uint64_t att
 		<< std::endl;
 }
 
-void save_result(const std::vector<float> &pixels, const std::vector<size_t> &shape, const std::filesystem::path &output_npy_path)
+static void save_result(const std::vector<float> &pixels, const std::vector<size_t> &shape, const std::filesystem::path &output_npy_path)
 {
 	cnpy::npy_save(output_npy_path, pixels.data(), shape, "w");
 }
 
-std::filesystem::path get_output_npy_path(
+static std::filesystem::path get_output_npy_path(
 		const std::filesystem::path &output_npy_path,
 		bool no_overwriting_output,
 		int saved_image_leading_zero_count,
@@ -165,7 +348,7 @@ std::filesystem::path get_output_npy_path(
 	}
 }
 
-std::vector<size_t> get_normal_to_opaque_index_lut(const std::vector<float> &pixels)
+static std::vector<size_t> get_normal_to_opaque_index_lut(const std::vector<float> &pixels)
 {
     std::vector<size_t> normal_to_opaque_index_lut;
 
@@ -186,7 +369,7 @@ std::vector<size_t> get_normal_to_opaque_index_lut(const std::vector<float> &pix
     return normal_to_opaque_index_lut;
 }
 
-std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, const std::vector<float> &kernel, int width, int height, int kernel_radius)
+static std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, const std::vector<float> &kernel, int width, int height, int kernel_radius)
 {
 	std::vector<float> neighbor_totals(pixels.size(), 0);
 
@@ -198,8 +381,8 @@ std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, const s
 	{
 		for (int px = 0; px < width; px++)
 		{
-			float pr = pixels.at((px + py * width) * 2);
-			float pg = pixels.at((px + py * width) * 2 + 1);
+			float pr = pixels[(px + py * width) * 2];
+			float pg = pixels[(px + py * width) * 2 + 1];
 
 			// Apply the kernel
 			for (int kdy = -kernel_radius; kdy < kernel_radius + 1; kdy++)
@@ -215,10 +398,10 @@ std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, const s
 
 					int kx = kernel_radius + kdx;
 					int ky = kernel_radius + kdy;
-					float k = kernel.at(kx + ky * kernel_diameter);
+					float k = kernel[kx + ky * kernel_diameter];
 
-					neighbor_totals.at((x + y * width) * 2) += pr * k;
-					neighbor_totals.at((x + y * width) * 2 + 1) += pg * k;
+					neighbor_totals[(x + y * width) * 2] += pr * k;
+					neighbor_totals[(x + y * width) * 2 + 1] += pg * k;
 				}
 			}
 		}
@@ -229,7 +412,7 @@ std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, const s
 
 // TODO: Profile whether it's faster to just recreate the kernel on the fly,
 // TODO: since we still need these same loops to loop over it anyways!
-std::vector<float> get_kernel(int kernel_radius)
+static std::vector<float> get_kernel(int kernel_radius)
 {
     int kernel_diameter = kernel_radius * 2 + 1;
 
@@ -248,14 +431,14 @@ std::vector<float> get_kernel(int kernel_radius)
             int x = kernel_radius + dx;
             int y = kernel_radius + dy;
 
-            kernel.at(x + y * kernel_diameter) = 1 / static_cast<float>(distance_squared + 1);
+            kernel[x + y * kernel_diameter] = 1 / static_cast<float>(distance_squared + 1);
 		}
 	}
 
 	return kernel;
 }
 
-int get_pair_count(const std::vector<float> &pixels)
+static int get_pair_count(const std::vector<float> &pixels)
 {
 	int opaque_pixel_count = 0;
 	for (size_t i = 3; i < pixels.size(); i += 4)
@@ -399,8 +582,8 @@ int main(int argc, char *argv[])
 	// This won't ever turn into a dangling pointer, since the vector stays a constant size
 	std::vector<float> pixels = arr.as_vec<float>();
 
-	int width = arr.shape.at(0);
-	int height = arr.shape.at(1);
+	int width = arr.shape[0];
+	int height = arr.shape[1];
 
 	int kernel_radius = args.kernel_radius;
 	int max_kernel_radius = std::max(width, height) - 1;
@@ -462,7 +645,7 @@ int main(int argc, char *argv[])
 		// Using unsigned wraparound
 		rand1++;
 
-		sort(pixels, neighbor_totals, updated, kernel, normal_to_opaque_index_lut, rand1, rand2, pair_count, attempted_swaps);
+		sort(pixels, neighbor_totals, updated, kernel, normal_to_opaque_index_lut, width, height, rand1, rand2, pair_count, kernel_radius, attempted_swaps);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);

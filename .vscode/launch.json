@@ -104,7 +104,7 @@
 			"request": "launch",
 			"program": "lab2rgb.py",
 			"args": [
-				"output_npy/heart_0000.npy",
+				"output_npy/heart.npy",
 				"output/heart.png",
 			],
 			"justMyCode": false
