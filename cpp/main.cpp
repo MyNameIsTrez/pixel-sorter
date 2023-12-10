@@ -240,14 +240,14 @@ static void sort(std::vector<float> &pixels, std::vector<float> &neighbor_totals
 		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count);
 		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2, opaque_pixel_count);
 
-		shuffled_i1 = normal_to_opaque_index_lut[shuffled_i1];
+		shuffled_i1 = normal_to_opaque_index_lut.at(shuffled_i1);
 		shuffled_i2 = normal_to_opaque_index_lut[shuffled_i2];
 
 		xy pos1 = get_pos(shuffled_i1, width);
 		xy pos2 = get_pos(shuffled_i2, width);
 
-		set_pixel(pixels, pos1, width, {});
-		set_pixel(pixels, pos2, width, {});
+		updated[get_index(pos1, width)] = false;
+		updated[get_index(pos2, width)] = false;
 
 		rgb pixel1 = get_pixel(pixels, pos1, width);
 		rgb pixel2 = get_pixel(pixels, pos2, width);
@@ -580,8 +580,8 @@ int main(int argc, char *argv[])
 	// This won't ever turn into a dangling pointer, since the vector stays a constant size
 	std::vector<float> pixels = arr.as_vec<float>();
 
-	int width = arr.shape[0];
-	int height = arr.shape[1];
+	int height = arr.shape[0];
+	int width = arr.shape[1];
 
 	int kernel_radius = args.kernel_radius;
 	int max_kernel_radius = std::max(width, height) - 1;
@@ -614,37 +614,37 @@ int main(int argc, char *argv[])
 		saved_results
 	);
 
-	auto last_printed_time = std::chrono::steady_clock::now();
+	// auto last_printed_time = std::chrono::steady_clock::now();
 
 	assert(signal(SIGINT, sigint_handler_running) != SIG_ERR);
-	while (running)
-	{
-		// TODO: Profile whether getting the time here *every single loop* isn't too slow
-		const auto now = std::chrono::steady_clock::now();
+	// while (running)
+	// {
+	// 	// TODO: Profile whether getting the time here *every single loop* isn't too slow
+	// 	const auto now = std::chrono::steady_clock::now();
 
-		if (now > last_printed_time + std::chrono::seconds(args.seconds_between_saves))
-		{
-			const std::filesystem::path output_npy_path = get_output_npy_path(
-				args.output_npy_path,
-				args.no_overwriting_output,
-				args.saved_image_leading_zero_count,
-				saved_results
-			);
+	// 	if (now > last_printed_time + std::chrono::seconds(args.seconds_between_saves))
+	// 	{
+	// 		const std::filesystem::path output_npy_path = get_output_npy_path(
+	// 			args.output_npy_path,
+	// 			args.no_overwriting_output,
+	// 			args.saved_image_leading_zero_count,
+	// 			saved_results
+	// 		);
 
-			save_result(pixels, arr.shape, output_npy_path);
-			saved_results += 1;
+	// 		save_result(pixels, arr.shape, output_npy_path);
+	// 		saved_results += 1;
 
-			print_status(saved_results, prev_attempted_swaps, attempted_swaps, start_time);
+	// 		print_status(saved_results, prev_attempted_swaps, attempted_swaps, start_time);
 
-			last_printed_time = std::chrono::steady_clock::now();
-			prev_attempted_swaps = attempted_swaps;
-		}
+	// 		last_printed_time = std::chrono::steady_clock::now();
+	// 		prev_attempted_swaps = attempted_swaps;
+	// 	}
 
-		// Using unsigned wraparound
-		rand1++;
+	// 	// Using unsigned wraparound
+	// 	rand1++;
 
 		sort(pixels, neighbor_totals, updated, kernel, normal_to_opaque_index_lut, width, height, rand1, rand2, pair_count, kernel_radius, attempted_swaps);
-	}
+	// }
 
 	save_result(pixels, arr.shape, output_npy_path);
 	saved_results += 1;
