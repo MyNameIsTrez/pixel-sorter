@@ -11,8 +11,8 @@
 			"cwd": ".",
 			"program": "${workspaceRoot}/a.out",
 			"args": [
-				"../input_npy/heart.npy",
-				"../output_npy/heart.npy",
+				"input_npy/heart.npy",
+				"output_npy/heart.npy",
 			],
 			"preLaunchTask": "Build cpp/main.cpp"
 		},
