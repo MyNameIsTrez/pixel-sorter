@@ -614,37 +614,37 @@ int main(int argc, char *argv[])
 		saved_results
 	);
 
-	// auto last_printed_time = std::chrono::steady_clock::now();
+	auto last_printed_time = std::chrono::steady_clock::now();
 
 	assert(signal(SIGINT, sigint_handler_running) != SIG_ERR);
-	// while (running)
-	// {
-	// 	// TODO: Profile whether getting the time here *every single loop* isn't too slow
-	// 	const auto now = std::chrono::steady_clock::now();
+	while (running)
+	{
+		// TODO: Profile whether getting the time here *every single loop* isn't too slow
+		const auto now = std::chrono::steady_clock::now();
 
-	// 	if (now > last_printed_time + std::chrono::seconds(args.seconds_between_saves))
-	// 	{
-	// 		const std::filesystem::path output_npy_path = get_output_npy_path(
-	// 			args.output_npy_path,
-	// 			args.no_overwriting_output,
-	// 			args.saved_image_leading_zero_count,
-	// 			saved_results
-	// 		);
+		if (now > last_printed_time + std::chrono::seconds(args.seconds_between_saves))
+		{
+			const std::filesystem::path output_npy_path = get_output_npy_path(
+				args.output_npy_path,
+				args.no_overwriting_output,
+				args.saved_image_leading_zero_count,
+				saved_results
+			);
 
-	// 		save_result(pixels, arr.shape, output_npy_path);
-	// 		saved_results += 1;
+			save_result(pixels, arr.shape, output_npy_path);
+			saved_results += 1;
 
-	// 		print_status(saved_results, prev_attempted_swaps, attempted_swaps, start_time);
+			print_status(saved_results, prev_attempted_swaps, attempted_swaps, start_time);
 
-	// 		last_printed_time = std::chrono::steady_clock::now();
-	// 		prev_attempted_swaps = attempted_swaps;
-	// 	}
+			last_printed_time = std::chrono::steady_clock::now();
+			prev_attempted_swaps = attempted_swaps;
+		}
 
-	// 	// Using unsigned wraparound
-	// 	rand1++;
+		// Using unsigned wraparound
+		rand1++;
 
 		sort(pixels, neighbor_totals, updated, kernel, normal_to_opaque_index_lut, width, height, rand1, rand2, pair_count, kernel_radius, attempted_swaps);
-	// }
+	}
 
 	save_result(pixels, arr.shape, output_npy_path);
 	saved_results += 1;

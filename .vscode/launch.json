@@ -11,10 +11,10 @@
 			"cwd": ".",
 			"program": "${workspaceRoot}/a.out",
 			"args": [
-				// "input_npy/heart.npy",
-				// "output_npy/heart.npy",
-				"input_npy/tiny3.npy",
-				"output_npy/tiny3.npy",
+				"input_npy/heart.npy",
+				"output_npy/heart.npy",
+				// "input_npy/tiny3.npy",
+				// "output_npy/tiny3.npy",
 			],
 			"setupCommands": [
 				{
@@ -31,10 +31,10 @@
 			"request": "launch",
 			"program": "sort.py",
 			"args": [
-				// "input_npy/heart.npy",
-				// "output_npy/heart.npy",
-				"input/tiny3.png",
-				"output/tiny3.png",
+				"input_npy/heart.npy",
+				"output_npy/heart.npy",
+				// "input/tiny3.png",
+				// "output/tiny3.png",
 				"--seconds-between-saves",
 				"60",
 				"--kernel-radius",
@@ -65,10 +65,10 @@
 			"request": "launch",
 			"program": "verify.py",
 			"args": [
-				// "input/heart.png",
-				// "output/heart.png",
-				"input/tiny3.png",
-				"output/tiny3.png",
+				"input/heart.png",
+				"output/heart.png",
+				// "input/tiny3.png",
+				// "output/tiny3.png",
 			],
 			"justMyCode": false
 		},
@@ -89,10 +89,10 @@
 			"request": "launch",
 			"program": "rgb2lab.py",
 			"args": [
-				// "input/heart.png",
-				// "input_npy/heart.npy",
-				"input/tiny3.png",
-				"input_npy/tiny3.npy",
+				"input/heart.png",
+				"input_npy/heart.npy",
+				// "input/tiny3.png",
+				// "input_npy/tiny3.npy",
 			],
 			"justMyCode": false
 		},
@@ -102,10 +102,10 @@
 			"request": "launch",
 			"program": "lab2rgb.py",
 			"args": [
-				// "output_npy/heart.npy",
-				// "output/heart.png",
-				"output_npy/tiny3.npy",
-				"output/tiny3.png",
+				"output_npy/heart.npy",
+				"output/heart.png",
+				// "output_npy/tiny3.npy",
+				// "output/tiny3.png",
 			],
 			"justMyCode": false
 		},
