@@ -17,6 +17,7 @@
 				"cpp/main.cpp",
 				"cpp/cnpy.cpp",
 				"-lz",
+				"-DDEBUG",
 			],
 			"problemMatcher": [
 				"$tsc"

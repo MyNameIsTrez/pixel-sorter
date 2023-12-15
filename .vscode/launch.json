@@ -15,6 +15,7 @@
 				"output_npy/heart.npy",
 				// "input_npy/tiny3.npy",
 				// "output_npy/tiny3.npy",
+				">neighbor_totals_error.log",
 			],
 			"setupCommands": [
 				{

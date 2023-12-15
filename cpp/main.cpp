@@ -1,5 +1,6 @@
 #include "cnpy.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <getopt.h>
 #include <iomanip>
@@ -49,6 +50,19 @@ static void sigint_handler_running(int signum)
 {
 	(void)signum;
 	running = false;
+}
+
+static void print_neighbor_totals_error(const std::vector<float> &neighbor_totals_error)
+{
+	for (size_t i = 0; i < neighbor_totals_error.size(); i++)
+	{
+		if (i > 0)
+		{
+			std::cout << ", ";
+		}
+		std::cout << "[" << i << "] error: " << neighbor_totals_error[i];
+	}
+	std::cout << std::endl;
 }
 
 static size_t get_index(xy pos, int width)
@@ -113,6 +127,11 @@ void update_neighbor_total(const std::vector<float> &pixels, std::vector<float> 
 	}
 
 	set_pixel(neighbor_totals, center, width, neighbor_total);
+
+	// TODO: REMOVE
+#ifdef DEBUG
+	std::cout << "Set neighbor_totals (x=" << center.x << ",y=" << center.y << ") to (r=" << neighbor_total.r << ",g=" << neighbor_total.g << ",b=" << neighbor_total.b << ")" << std::endl;
+#endif
 }
 
 static void mark_neighbors_as_updated(std::vector<bool> &updated, xy center, int width, int height, int kernel_radius)
@@ -228,13 +247,82 @@ static int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_
 	return shuffled;
 }
 
+static std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, const std::vector<float> &kernel, int width, int height, int kernel_radius)
+{
+	std::vector<float> neighbor_totals(pixels.size(), 0);
+
+	int kernel_diameter = kernel_radius * 2 + 1;
+
+	// Play around with extra/kernel_tests.cpp to see how this convolving works
+	// For every pixel
+	for (int py = 0; py < height; py++)
+	{
+		for (int px = 0; px < width; px++)
+		{
+			float pr = pixels[(px + py * width) * 2];
+			float pg = pixels[(px + py * width) * 2 + 1];
+
+			// Apply the kernel
+			for (int kdy = -kernel_radius; kdy < kernel_radius + 1; kdy++)
+			{
+				for (int kdx = -kernel_radius; kdx < kernel_radius + 1; kdx++)
+				{
+					int x = px + kdx;
+					int y = py + kdy;
+					if (x < 0 || y < 0 || x >= width || y >= height)
+					{
+						continue;
+					}
+
+					int kx = kernel_radius + kdx;
+					int ky = kernel_radius + kdy;
+					float k = kernel[kx + ky * kernel_diameter];
+
+					neighbor_totals[(x + y * width) * 2] += pr * k;
+					neighbor_totals[(x + y * width) * 2 + 1] += pg * k;
+				}
+			}
+		}
+	}
+
+	return neighbor_totals;
+}
+
+static std::vector<float> get_neighbor_totals_error(const std::vector<float> &neighbor_totals, const std::vector<float> &pixels, const std::vector<float> &kernel, int width, int height, int kernel_radius)
+{
+	std::vector<float> actual_neighbor_totals = get_neighbor_totals(pixels, kernel, width, height, kernel_radius);
+	// TODO: Turn into a one-liner with C++ magic
+	std::vector<float> neighbor_totals_error;
+	for (size_t i = 0; i < neighbor_totals.size(); i++)
+	{
+		neighbor_totals_error.push_back(neighbor_totals[i] - actual_neighbor_totals[i]);
+	}
+	return neighbor_totals_error;
+}
+
 static void sort(std::vector<float> &pixels, std::vector<float> &neighbor_totals, std::vector<bool> &updated, const std::vector<float> &kernel, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int pair_count, int kernel_radius, uint64_t &attempted_swaps)
 {
 	int opaque_pixel_count = pair_count * 2;
 
+#ifdef DEBUG
+	uint64_t swaps = 0;
+	uint64_t updated_neighbors = 0;
+#endif
+
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i1 = 0; i1 < pair_count; i1 += 2)
 	{
+#ifdef DEBUG
+		std::vector<float> neighbor_totals_error = get_neighbor_totals_error(neighbor_totals, pixels, kernel, width, height, kernel_radius);
+		bool no_error = std::all_of(neighbor_totals_error.begin(), neighbor_totals_error.end(), [](float f) { return f == 0.0f; });
+		if (!no_error)
+		{
+			std::cout << "There were " << swaps << " swaps and " << updated_neighbors << " updated neighbors in " << attempted_swaps << " attempted swaps" << std::endl;
+			print_neighbor_totals_error(neighbor_totals_error);
+			abort();
+		}
+#endif
+
 		int i2 = i1 + 1;
 
 		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count);
@@ -261,16 +349,25 @@ static void sort(std::vector<float> &pixels, std::vector<float> &neighbor_totals
 
 			set_pixel(pixels, pos2, width, pixel1);
 			mark_neighbors_as_updated(updated, pos2, width, height, kernel_radius);
+#ifdef DEBUG
+			swaps++;
+#endif
 		}
 
 		if (swapping || updated[get_index(pos1, width)])
 		{
 			update_neighbor_total(pixels, neighbor_totals, kernel, pos1, width, height, kernel_radius);
+#ifdef DEBUG
+			updated_neighbors++;
+#endif
 		}
 
 		if (swapping || updated[get_index(pos2, width)])
 		{
 			update_neighbor_total(pixels, neighbor_totals, kernel, pos2, width, height, kernel_radius);
+#ifdef DEBUG
+			updated_neighbors++;
+#endif
 		}
 
 		attempted_swaps++;
@@ -367,47 +464,6 @@ static std::vector<size_t> get_normal_to_opaque_index_lut(const std::vector<floa
 	}
 
     return normal_to_opaque_index_lut;
-}
-
-static std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, const std::vector<float> &kernel, int width, int height, int kernel_radius)
-{
-	std::vector<float> neighbor_totals(pixels.size(), 0);
-
-	int kernel_diameter = kernel_radius * 2 + 1;
-
-	// Play around with extra/kernel_tests.cpp to see how this convolving works
-	// For every pixel
-	for (int py = 0; py < height; py++)
-	{
-		for (int px = 0; px < width; px++)
-		{
-			float pr = pixels[(px + py * width) * 2];
-			float pg = pixels[(px + py * width) * 2 + 1];
-
-			// Apply the kernel
-			for (int kdy = -kernel_radius; kdy < kernel_radius + 1; kdy++)
-			{
-				for (int kdx = -kernel_radius; kdx < kernel_radius + 1; kdx++)
-				{
-					int x = px + kdx;
-					int y = py + kdy;
-					if (x < 0 || y < 0 || x >= width || y >= height)
-					{
-						continue;
-					}
-
-					int kx = kernel_radius + kdx;
-					int ky = kernel_radius + kdy;
-					float k = kernel[kx + ky * kernel_diameter];
-
-					neighbor_totals[(x + y * width) * 2] += pr * k;
-					neighbor_totals[(x + y * width) * 2 + 1] += pg * k;
-				}
-			}
-		}
-	}
-
-	return neighbor_totals;
 }
 
 // TODO: Profile whether it's faster to just recreate the kernel on the fly,
