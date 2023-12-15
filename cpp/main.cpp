@@ -52,6 +52,7 @@ static void sigint_handler_running(int signum)
 	running = false;
 }
 
+#ifdef DEBUG
 static void print_neighbor_totals_error(const std::vector<float> &neighbor_totals_error)
 {
 	for (size_t i = 0; i < neighbor_totals_error.size(); i++)
@@ -64,6 +65,7 @@ static void print_neighbor_totals_error(const std::vector<float> &neighbor_total
 	}
 	std::cout << std::endl;
 }
+#endif
 
 static size_t get_index(xy pos, int width)
 {
@@ -288,6 +290,7 @@ static std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, 
 	return neighbor_totals;
 }
 
+#ifdef DEBUG
 static std::vector<float> get_neighbor_totals_error(const std::vector<float> &neighbor_totals, const std::vector<float> &pixels, const std::vector<float> &kernel, int width, int height, int kernel_radius)
 {
 	std::vector<float> actual_neighbor_totals = get_neighbor_totals(pixels, kernel, width, height, kernel_radius);
@@ -299,6 +302,7 @@ static std::vector<float> get_neighbor_totals_error(const std::vector<float> &ne
 	}
 	return neighbor_totals_error;
 }
+#endif
 
 static void sort(std::vector<float> &pixels, std::vector<float> &neighbor_totals, std::vector<bool> &updated, const std::vector<float> &kernel, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int pair_count, int kernel_radius, uint64_t &attempted_swaps)
 {
