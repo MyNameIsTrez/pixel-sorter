@@ -20,25 +20,25 @@ struct xy
 	}
 };
 
-struct rgb
+struct lab
 {
-	float r;
-	float g;
+	float l;
+	float a;
 	float b;
 
-	rgb operator*(float multiplier)
+	lab operator*(float multiplier)
 	{
 		return {
-			r * multiplier,
-			g * multiplier,
+			l * multiplier,
+			a * multiplier,
 			b * multiplier
 		};
 	}
 
-	rgb operator+=(const rgb &other)
+	lab operator+=(const lab &other)
 	{
-		r += other.r;
-		g += other.g;
+		l += other.l;
+		a += other.a;
 		b += other.b;
 
 		return *this;
@@ -72,29 +72,29 @@ static size_t get_index(xy pos, int width)
 	return pos.x + pos.y * width;
 }
 
-static rgb get_pixel(const std::vector<float> &pixels, xy pos, int width)
+static lab get_pixel(const std::vector<float> &pixels, xy pos, int width)
 {
 	size_t i = get_index(pos, width) * 4;
 
-	float r = pixels[i + 0];
-	float g = pixels[i + 1];
+	float l = pixels[i + 0];
+	float a = pixels[i + 1];
 	float b = pixels[i + 2];
 
-	return {r, g, b};
+	return {l, a, b};
 }
 
-static void set_pixel(std::vector<float> &pixels, xy pos, int width, rgb rgb)
+static void set_pixel(std::vector<float> &pixels, xy pos, int width, lab lab)
 {
 	size_t i = get_index(pos, width) * 4;
 
-	pixels[i + 0] = rgb.r;
-	pixels[i + 1] = rgb.g;
-	pixels[i + 2] = rgb.b;
+	pixels[i + 0] = lab.l;
+	pixels[i + 1] = lab.a;
+	pixels[i + 2] = lab.b;
 }
 
 void update_neighbor_total(const std::vector<float> &pixels, std::vector<float> &neighbor_totals, const std::vector<float> &kernel, xy center, int width, int height, int kernel_radius)
 {
-	rgb neighbor_total = {};
+	lab neighbor_total = {};
 	xy kernel_center = {kernel_radius, kernel_radius};
 
 	// TODO: By padding the input image, it should be possible to get rid of these bounds variables
@@ -118,7 +118,7 @@ void update_neighbor_total(const std::vector<float> &pixels, std::vector<float> 
 				continue;
 			}
 
-			rgb neighbor_pixel = get_pixel(pixels, neighbor, width);
+			lab neighbor_pixel = get_pixel(pixels, neighbor, width);
 
 			xy kernel_pos = kernel_center + offset;
 
@@ -132,7 +132,7 @@ void update_neighbor_total(const std::vector<float> &pixels, std::vector<float> 
 
 	// TODO: REMOVE
 #ifdef DEBUG
-	std::cout << "Set neighbor_totals (x=" << center.x << ",y=" << center.y << ") to (r=" << neighbor_total.r << ",g=" << neighbor_total.g << ",b=" << neighbor_total.b << ")" << std::endl;
+	std::cout << "Set neighbor_totals (x=" << center.x << ",y=" << center.y << ") to (l=" << neighbor_total.l << ",a=" << neighbor_total.a << ",b=" << neighbor_total.b << ")" << std::endl;
 #endif
 }
 
@@ -163,20 +163,20 @@ static void mark_neighbors_as_updated(std::vector<bool> &updated, xy center, int
 	}
 }
 
-static float get_squared_color_difference(rgb pixel, rgb neighbor_pixel)
+static float get_squared_color_difference(lab pixel, lab neighbor_pixel)
 {
-	float r_diff = pixel.r - neighbor_pixel.r;
-	float g_diff = pixel.g - neighbor_pixel.g;
+	float l_diff = pixel.l - neighbor_pixel.l;
+	float a_diff = pixel.a - neighbor_pixel.a;
 	float b_diff = pixel.b - neighbor_pixel.b;
 
 	return (
-		r_diff * r_diff +
-		g_diff * g_diff +
+		l_diff * l_diff +
+		a_diff * a_diff +
 		b_diff * b_diff
 	);
 }
 
-static bool should_swap(std::vector<float> &neighbor_totals, rgb pixel1, rgb pixel2, xy pos1, xy pos2, int width)
+static bool should_swap(std::vector<float> &neighbor_totals, lab pixel1, lab pixel2, xy pos1, xy pos2, int width)
 {
 	// TODO:
 	/*
@@ -185,17 +185,17 @@ static bool should_swap(std::vector<float> &neighbor_totals, rgb pixel1, rgb pix
 	I think the issue is that the neighbor total includes the own, center pixel?
 
 	The hypothetical scenario:
-	Imagine a 3D RGB cube where i1_neighbor_total is very low, like (r=10,g=10,b=10)
-	Say pixel1 was (r=3,g=3,b=3), then it shouldn't be swapped when pixel2 is say (r=11,g=11,b=11),
+	Imagine a 3D RGB cube where i1_neighbor_total is very low, like (l=10,a=10,b=10)
+	Say pixel1 was (l=3,a=3,b=3), then it shouldn't be swapped when pixel2 is say (l=11,a=11,b=11),
 	but this current code would swap it, since the difference between 10 and 11 is smaller
 	*/
 
-	rgb i1_neighbor_total = get_pixel(neighbor_totals, pos1, width);
+	lab i1_neighbor_total = get_pixel(neighbor_totals, pos1, width);
 	float i1_old_score = get_squared_color_difference(pixel1, i1_neighbor_total);
 	float i1_new_score = get_squared_color_difference(pixel2, i1_neighbor_total);
 	float i1_score_difference = -i1_old_score + i1_new_score;
 
-	rgb i2_neighbor_total = get_pixel(neighbor_totals, pos2, width);
+	lab i2_neighbor_total = get_pixel(neighbor_totals, pos2, width);
 	float i2_old_score = get_squared_color_difference(pixel2, i2_neighbor_total);
 	float i2_new_score = get_squared_color_difference(pixel1, i2_neighbor_total);
 	float i2_score_difference = -i2_old_score + i2_new_score;
@@ -273,8 +273,8 @@ static std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, 
 	{
 		for (int px = 0; px < width; px++)
 		{
-			float pr = pixels[(px + py * width) * 4 + 0];
-			float pg = pixels[(px + py * width) * 4 + 1];
+			float pl = pixels[(px + py * width) * 4 + 0];
+			float pa = pixels[(px + py * width) * 4 + 1];
 			float pb = pixels[(px + py * width) * 4 + 2];
 
 			// Apply the kernel
@@ -293,8 +293,8 @@ static std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, 
 					int ky = kernel_radius + kdy;
 					float k = kernel[kx + ky * kernel_diameter];
 
-					neighbor_totals[(x + y * width) * 4 + 0] += pr * k;
-					neighbor_totals[(x + y * width) * 4 + 1] += pg * k;
+					neighbor_totals[(x + y * width) * 4 + 0] += pl * k;
+					neighbor_totals[(x + y * width) * 4 + 1] += pa * k;
 					neighbor_totals[(x + y * width) * 4 + 2] += pb * k;
 				}
 			}
@@ -355,8 +355,8 @@ static void sort(std::vector<float> &pixels, std::vector<float> &neighbor_totals
 		updated[get_index(pos1, width)] = false;
 		updated[get_index(pos2, width)] = false;
 
-		rgb pixel1 = get_pixel(pixels, pos1, width);
-		rgb pixel2 = get_pixel(pixels, pos2, width);
+		lab pixel1 = get_pixel(pixels, pos1, width);
+		lab pixel2 = get_pixel(pixels, pos2, width);
 
 		bool swapping = should_swap(neighbor_totals, pixel1, pixel2, pos1, pos2, width);
 
