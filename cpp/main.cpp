@@ -178,6 +178,18 @@ static float get_squared_color_difference(rgb pixel, rgb neighbor_pixel)
 
 static bool should_swap(std::vector<float> &neighbor_totals, rgb pixel1, rgb pixel2, xy pos1, xy pos2, int width)
 {
+	// TODO:
+	/*
+	I think this is fundamentally flawed, since we're comparing a single RGB with a sum of RGB?
+	The example that is fucking me up is tiny3.png its pos1 that is at x=1 in the first iteration here
+	I think the issue is that the neighbor total includes the own, center pixel?
+
+	The hypothetical scenario:
+	Imagine a 3D RGB cube where i1_neighbor_total is very low, like (r=10,g=10,b=10)
+	Say pixel1 was (r=3,g=3,b=3), then it shouldn't be swapped when pixel2 is say (r=11,g=11,b=11),
+	but this current code would swap it, since the difference between 10 and 11 is smaller
+	*/
+
 	rgb i1_neighbor_total = get_pixel(neighbor_totals, pos1, width);
 	float i1_old_score = get_squared_color_difference(pixel1, i1_neighbor_total);
 	float i1_new_score = get_squared_color_difference(pixel2, i1_neighbor_total);
@@ -261,8 +273,9 @@ static std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, 
 	{
 		for (int px = 0; px < width; px++)
 		{
-			float pr = pixels[(px + py * width) * 2];
-			float pg = pixels[(px + py * width) * 2 + 1];
+			float pr = pixels[(px + py * width) * 4 + 0];
+			float pg = pixels[(px + py * width) * 4 + 1];
+			float pb = pixels[(px + py * width) * 4 + 2];
 
 			// Apply the kernel
 			for (int kdy = -kernel_radius; kdy < kernel_radius + 1; kdy++)
@@ -280,8 +293,9 @@ static std::vector<float> get_neighbor_totals(const std::vector<float> &pixels, 
 					int ky = kernel_radius + kdy;
 					float k = kernel[kx + ky * kernel_diameter];
 
-					neighbor_totals[(x + y * width) * 2] += pr * k;
-					neighbor_totals[(x + y * width) * 2 + 1] += pg * k;
+					neighbor_totals[(x + y * width) * 4 + 0] += pr * k;
+					neighbor_totals[(x + y * width) * 4 + 1] += pg * k;
+					neighbor_totals[(x + y * width) * 4 + 2] += pb * k;
 				}
 			}
 		}
@@ -332,7 +346,7 @@ static void sort(std::vector<float> &pixels, std::vector<float> &neighbor_totals
 		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count);
 		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2, opaque_pixel_count);
 
-		shuffled_i1 = normal_to_opaque_index_lut.at(shuffled_i1);
+		shuffled_i1 = normal_to_opaque_index_lut[shuffled_i1];
 		shuffled_i2 = normal_to_opaque_index_lut[shuffled_i2];
 
 		xy pos1 = get_pos(shuffled_i1, width);
