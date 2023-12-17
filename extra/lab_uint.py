@@ -43,20 +43,17 @@ def main():
     print("-= signed_to_unsigned")
     pixels[:, :, :3] -= signed_to_unsigned
 
-    print("pixels.copy()")
-    new_pixels = pixels.copy()
-
     print("Running lab2rgb()")
-    new_pixels[:, :, :3] = color.lab2rgb(pixels[:, :, :3])
+    pixels[:, :, :3] = color.lab2rgb(pixels[:, :, :3])
 
     print("*= 255")
-    new_pixels[:, :, :3] *= 255
+    pixels[:, :, :3] *= 255
 
     print("Rounding to uint8")
-    new_pixels = np.round(new_pixels).astype(np.uint8)
+    pixels = np.round(pixels).astype(np.uint8)
 
     assert (
-        np.array(input_img, dtype=np.uint8) == new_pixels
+        np.array(input_img, dtype=np.uint8) == pixels
     ).all(), "❌ There was loss of information during the translation!"
 
     print("🎉 There was no loss of information during the translation!")

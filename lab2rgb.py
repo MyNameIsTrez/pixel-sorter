@@ -7,16 +7,36 @@ from skimage import color
 
 
 def verify(input_lab_npy_path, output_rgb_image_path):
-    print("Loading input LAB image...")
+    # "The L* values range from 0 to 100; the a* and b* values range from -128 to 127."
+    # https://scikit-image.org/docs/stable/api/skimage.color.html#skimage.color.lab2rgb
+    signed_to_unsigned = 128
+
+    # Unsigned integer precision loss compensation multiplier
+    # 82 is the lowest integer value that works
+    precision_compensation = 82
+
+    print("Loading input LAB image")
     pixels = np.load(input_lab_npy_path)
 
-    print("Running lab2rgb()...")
+    print("pixels.astype(np.float32)")
+    pixels = pixels.astype(np.float32)
+
+    print("/= precision_compensation")
+    pixels[:, :, :3] /= precision_compensation
+
+    print("-= signed_to_unsigned")
+    pixels[:, :, :3] -= signed_to_unsigned
+
+    print("Running lab2rgb()")
     pixels[:, :, :3] = color.lab2rgb(pixels[:, :, :3])
 
+    print("*= 255")
     pixels[:, :, :3] *= 255
 
+    print("Rounding to uint8")
     pixels = np.round(pixels).astype(np.uint8)
 
+    print("Saving output RGB image")
     Image.fromarray(pixels).save(output_rgb_image_path)
 
     print("Done!")
