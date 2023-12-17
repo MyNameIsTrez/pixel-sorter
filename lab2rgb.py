@@ -18,6 +18,10 @@ def verify(input_lab_npy_path, output_rgb_image_path):
     print("Loading input LAB image")
     pixels = np.load(input_lab_npy_path)
 
+    print(f"Setting LAB values to a temporary value that have an alpha of 0")
+    t = signed_to_unsigned * precision_compensation
+    pixels[pixels[:, :, 3] == 0] = [t, t, t, 0]
+
     print("pixels.astype(np.float32)")
     pixels = pixels.astype(np.float32)
 

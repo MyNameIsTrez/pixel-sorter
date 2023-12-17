@@ -6,12 +6,16 @@ from PIL import Image
 
 
 def _get_colors_and_counts(filepath):
-    img = Image.open(filepath).convert("RGB")
+    img = Image.open(filepath).convert("RGBA")
 
     arr = np.array(img)
 
+    # Set the RGB values of pixels with an alpha of 0 all to 0
+    arr[arr[:, :, 3] == 0] = 0
+
     # Arrange all pixels into a tall column of 3 RGB values and find unique rows (colors)
     colors, counts = np.unique(arr.reshape(-1, 3), axis=0, return_counts=1)
+
     return colors, counts
 
 

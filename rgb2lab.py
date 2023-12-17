@@ -35,6 +35,9 @@ def verify(input_rgb_image_path, output_lab_npy_path):
     print("Rounding to uint32")
     pixels = np.round(pixels).astype(np.uint16)
 
+    print("Setting LAB values to 0 that have an alpha of 0")
+    pixels[pixels[:, :, 3] == 0] = 0
+
     print("Saving output LAB image")
     np.save(output_lab_npy_path, pixels)
 
