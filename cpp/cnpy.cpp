@@ -120,6 +120,7 @@ void cnpy::parse_npy_header(unsigned char *buffer, size_t &word_size, std::vecto
     loc1 = header.find("descr") + 9;
     bool littleEndian = (header[loc1] == '<' || header[loc1] == '|' ? true : false);
     assert(littleEndian);
+    (void)littleEndian;
 
     // char type = header[loc1+1];
     // assert(type == map_type(T));
@@ -173,6 +174,7 @@ void cnpy::parse_npy_header(FILE *fp, size_t &word_size, std::vector<size_t> &sh
     loc1 += 9;
     bool littleEndian = (header[loc1] == '<' || header[loc1] == '|' ? true : false);
     assert(littleEndian);
+    (void)littleEndian;
 
     // char type = header[loc1+1];
     // assert(type == map_type(T));
@@ -200,9 +202,13 @@ void cnpy::parse_zip_footer(FILE *fp, uint16_t &nrecs, size_t &global_header_siz
     comment_len = *(uint16_t *)&footer[20];
 
     assert(disk_no == 0);
+    (void)disk_no;
     assert(disk_start == 0);
+    (void)disk_start;
     assert(nrecs_on_disk == nrecs);
+    (void)nrecs_on_disk;
     assert(comment_len == 0);
+    (void)comment_len;
 }
 
 cnpy::NpyArray load_the_npy_file(FILE *fp)
