@@ -13,8 +13,8 @@ def _get_colors_and_counts(filepath):
     # Set the RGB values of pixels with an alpha of 0 all to 0
     arr[arr[:, :, 3] == 0] = 0
 
-    # Arrange all pixels into a tall column of 3 RGB values and find unique rows (colors)
-    colors, counts = np.unique(arr.reshape(-1, 3), axis=0, return_counts=1)
+    # Arrange all pixels into a tall column of 4 RGBA values and find unique rows (colors)
+    colors, counts = np.unique(arr.reshape(-1, 4), axis=0, return_counts=1)
 
     return colors, counts
 
