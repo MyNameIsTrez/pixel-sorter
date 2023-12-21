@@ -20,7 +20,7 @@
 				"input_npy/big_palette.npy",
 				"output_npy/big_palette.npy",
 				"--kernel-radius",
-				"20",
+				"5",
 				// ">neighbor_totals_error.log",
 			],
 			"setupCommands": [

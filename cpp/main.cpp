@@ -390,41 +390,21 @@ static std::vector<size_t> get_normal_to_opaque_index_lut(const std::vector<uint
 	return normal_to_opaque_index_lut;
 }
 
+// TODO: Profile whether it's faster to just recalculate this on the fly, rather than looking in a vector that can cause a cache miss
 // Returns a vector of floats instead of ints,
 // since these values will be used for float division
-static std::vector<float> get_neighbor_counts(int kernel_radius, size_t pixels_size, int width, int height)
+static std::vector<float> get_neighbor_counts(int kernel_radius, int width, int height)
 {
-	std::vector<float> neighbor_counts(pixels_size, 0);
+	std::vector<float> neighbor_counts(width * height, 0);
 
-	// For every pixel
 	for (int py = 0; py < height; py++)
 	{
 		for (int px = 0; px < width; px++)
 		{
-			// TODO: By padding the input image it should be possible to get rid of these bounds variables
-			int kdy_min = -std::min(py, kernel_radius);
-			int kdy_max = std::min(height - 1 - py, kernel_radius);
+			int kernel_x_count = std::min(px, kernel_radius) + std::min(width - 1 - px, kernel_radius) + 1;
+			int kernel_y_count = std::min(py, kernel_radius) + std::min(height - 1 - py, kernel_radius) + 1;
 
-			int kdx_min = -std::min(px, kernel_radius);
-			int kdx_max = std::min(width - 1 - px, kernel_radius);
-
-			// Apply the kernel
-			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
-			{
-				for (int kdx = kdx_min; kdx <= kdx_max; kdx++)
-				{
-					int x = px + kdx;
-					int y = py + kdy;
-
-					// This doesn't work, since neighbor_totals stores the original uint16s added together,
-					// so doesn't work with fractions of lab values. Otherwise we can't subtract and add
-					// to it without losing more and more precision the longer the program runs.
-					// So the result wouldn't make sense if neighbor_total was divided by a non-integer.
-					// neighbor_counts[x + y * width] += 1 / static_cast<float>(distance_squared + 1);
-
-					neighbor_counts[x + y * width]++;
-				}
-			}
+			neighbor_counts[px + py * width] += kernel_x_count * kernel_y_count;
 		}
 	}
 
@@ -578,7 +558,7 @@ int main(int argc, char *argv[])
 	std::vector<uint64_t> neighbor_totals = get_neighbor_totals(pixels, width, height, kernel_radius);
 
 	std::cout << "Calculating neighbor_counts" << std::endl;
-	const std::vector<float> neighbor_counts = get_neighbor_counts(kernel_radius, pixels.size(), width, height);
+	const std::vector<float> neighbor_counts = get_neighbor_counts(kernel_radius, width, height);
 
 	uint32_t rand1 = 42424242;
 	uint32_t rand2 = 69696969;
