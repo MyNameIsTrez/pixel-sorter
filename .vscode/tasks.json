@@ -11,7 +11,7 @@
 				"-Werror",
 				"-Wpedantic",
 				"-Wfatal-errors",
-				// "-g",
+				"-g",
 				"-std=c++17",
 				"cpp/main.cpp",
 				"cpp/cnpy.cpp",
