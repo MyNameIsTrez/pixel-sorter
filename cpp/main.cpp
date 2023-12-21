@@ -259,49 +259,6 @@ std::vector<uint64_t> get_neighbor_totals(const std::vector<uint16_t> &pixels, i
 	return neighbor_totals;
 }
 
-#ifdef DEBUG
-// TODO: Remove this slow-ass function!
-static std::vector<uint64_t> get_neighbor_totals_slow(const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
-{
-	std::vector<uint64_t> neighbor_totals(pixels.size(), 0);
-
-	// For every pixel
-	for (int py = 0; py < height; py++)
-	{
-		for (int px = 0; px < width; px++)
-		{
-			// TODO: By padding the input image it should be possible to get rid of these bounds variables
-			int kdy_min = -std::min(py, kernel_radius);
-			int kdy_max = std::min(height - 1 - py, kernel_radius);
-
-			int kdx_min = -std::min(px, kernel_radius);
-			int kdx_max = std::min(width - 1 - px, kernel_radius);
-
-			// TODO:: Replace this with a little one-line calculus
-			// Apply the kernel
-			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
-			{
-				for (int kdx = kdx_min; kdx <= kdx_max; kdx++)
-				{
-					int x = px + kdx;
-					int y = py + kdy;
-
-					uint16_t l = pixels[(x + y * width) * 4 + 0];
-					uint16_t a = pixels[(x + y * width) * 4 + 1];
-					uint16_t b = pixels[(x + y * width) * 4 + 2];
-
-					neighbor_totals[(px + py * width) * 4 + 0] += l;
-					neighbor_totals[(px + py * width) * 4 + 1] += a;
-					neighbor_totals[(px + py * width) * 4 + 2] += b;
-				}
-			}
-		}
-	}
-
-	return neighbor_totals;
-}
-#endif
-
 static void sort(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps)
 {
 	int opaque_pixel_count = pair_count * 2;
@@ -619,9 +576,6 @@ int main(int argc, char *argv[])
 
 	std::cout << "Calculating neighbor_totals" << std::endl;
 	std::vector<uint64_t> neighbor_totals = get_neighbor_totals(pixels, width, height, kernel_radius);
-#ifdef DEBUG
-	assert(neighbor_totals == get_neighbor_totals_slow(pixels, width, height, kernel_radius));
-#endif
 
 	std::cout << "Calculating neighbor_counts" << std::endl;
 	const std::vector<float> neighbor_counts = get_neighbor_counts(kernel_radius, pixels.size(), width, height);
