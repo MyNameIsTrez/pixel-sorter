@@ -25,24 +25,6 @@ struct lab
 	uint16_t a;
 	uint16_t b;
 
-	// TODO: This can't return lab anymore, since it still assumes it's a float3
-	// lab operator*(float multiplier)
-	// {
-	// 	return {
-	// 		l * multiplier,
-	// 		a * multiplier,
-	// 		b * multiplier};
-	// }
-
-	// TODO: Remove?
-	// lab operator/(float divisor)
-	// {
-	// 	return {
-	// 		static_cast<uint16_t>(l / divisor),
-	// 		static_cast<uint16_t>(a / divisor),
-	// 		static_cast<uint16_t>(b / divisor)};
-	// }
-
 	lab operator+=(const lab &other)
 	{
 		l += other.l;
@@ -59,21 +41,6 @@ static void sigint_handler_running(int signum)
 	(void)signum;
 	running = false;
 }
-
-#ifdef DEBUG
-static void print_neighbor_totals_error(const std::vector<double> &neighbor_totals_error)
-{
-	for (size_t i = 0; i < neighbor_totals_error.size(); i++)
-	{
-		if (i > 0)
-		{
-			std::cout << ", ";
-		}
-		std::cout << "[" << i << "] error: " << neighbor_totals_error[i];
-	}
-	std::cout << std::endl;
-}
-#endif
 
 static size_t get_index(xy pos, int width)
 {
@@ -113,12 +80,6 @@ static void update_neighbors(std::vector<uint64_t> &neighbor_totals, xy center, 
 	{
 		for (int dx = dx_min; dx <= dx_max; dx++)
 		{
-			int distance_squared = dx * dx + dy * dy;
-			if (distance_squared > kernel_radius * kernel_radius)
-			{
-				continue;
-			}
-
 			xy neighbor = {center.x + dx, center.y + dy};
 
 			assert(neighbor_totals[get_index(neighbor, width) * 4 + 0] >= old_pixel.l);
@@ -235,7 +196,72 @@ static int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_
 	return shuffled;
 }
 
-static std::vector<uint64_t> get_neighbor_totals(const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
+// This is a convolution function.
+// TODO: This function can be made significantly better by letting the center
+//       that needs no bounds checks be processed as a separate pass
+// In this example, the kernel_radius is 1:
+// (x=0, y=0) its 1 is the center, and the neighbor total is 1+2+4+5:
+// [1 2] 3
+// [4 5] 6
+// (x=1, y=0) its 2 is the center, and the neighbor total is 1+2+3+4+5+6:
+// [1 2 3]
+// [4 5 6]
+// (x=2, y=0) its 3 is the center, and the neighbor total is 2+3+5+6:
+// 1 [2 3]
+// 4 [5 6]
+std::vector<uint64_t> get_neighbor_totals(const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
+{
+	std::vector<uint64_t> neighbor_totals(pixels.size(), 0);
+
+	// Horizontal convolution
+	for (int py = 0; py < height; py++)
+	{
+		for (int px = 0; px < width; px++)
+		{
+			int kdx_min = -std::min(px, kernel_radius);
+			int kdx_max = std::min(width - 1 - px, kernel_radius);
+
+			for (int kdx = kdx_min; kdx <= kdx_max; kdx++)
+			{
+				int x = px + kdx;
+
+				neighbor_totals[(px + py * width) * 4 + 0] += pixels[(x + py * width) * 4 + 0];
+				neighbor_totals[(px + py * width) * 4 + 1] += pixels[(x + py * width) * 4 + 1];
+				neighbor_totals[(px + py * width) * 4 + 2] += pixels[(x + py * width) * 4 + 2];
+			}
+		}
+	}
+
+	const std::vector<uint64_t> neighbor_totals_copy(neighbor_totals);
+
+	// Vertical convolution
+	for (int py = 0; py < height; py++)
+	{
+		for (int px = 0; px < width; px++)
+		{
+			int kdy_min = -std::min(py, kernel_radius);
+			int kdy_max = std::min(height - 1 - py, kernel_radius);
+
+			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
+			{
+				if (kdy != 0)
+				{
+					int y = py + kdy;
+
+					neighbor_totals[(px + py * width) * 4 + 0] += neighbor_totals_copy[(px + y * width) * 4 + 0];
+					neighbor_totals[(px + py * width) * 4 + 1] += neighbor_totals_copy[(px + y * width) * 4 + 1];
+					neighbor_totals[(px + py * width) * 4 + 2] += neighbor_totals_copy[(px + y * width) * 4 + 2];
+				}
+			}
+		}
+	}
+
+	return neighbor_totals;
+}
+
+#ifdef DEBUG
+// TODO: Remove this slow-ass function!
+static std::vector<uint64_t> get_neighbor_totals_slow(const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
 {
 	std::vector<uint64_t> neighbor_totals(pixels.size(), 0);
 
@@ -251,17 +277,12 @@ static std::vector<uint64_t> get_neighbor_totals(const std::vector<uint16_t> &pi
 			int kdx_min = -std::min(px, kernel_radius);
 			int kdx_max = std::min(width - 1 - px, kernel_radius);
 
+			// TODO:: Replace this with a little one-line calculus
 			// Apply the kernel
 			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
 			{
 				for (int kdx = kdx_min; kdx <= kdx_max; kdx++)
 				{
-					int distance_squared = kdx * kdx + kdy * kdy;
-					if (distance_squared > kernel_radius * kernel_radius)
-					{
-						continue;
-					}
-
 					int x = px + kdx;
 					int y = py + kdy;
 
@@ -279,44 +300,15 @@ static std::vector<uint64_t> get_neighbor_totals(const std::vector<uint16_t> &pi
 
 	return neighbor_totals;
 }
-
-#ifdef DEBUG
-static std::vector<double> get_neighbor_totals_error(const std::vector<uint64_t> &neighbor_totals, const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
-{
-	std::vector<uint64_t> actual_neighbor_totals = get_neighbor_totals(pixels, width, height, kernel_radius);
-	// TODO: Turn into a one-liner with C++ magic
-	std::vector<double> neighbor_totals_error;
-	for (size_t i = 0; i < neighbor_totals.size(); i++)
-	{
-		neighbor_totals_error.push_back(neighbor_totals[i] - static_cast<double>(actual_neighbor_totals[i]));
-	}
-	return neighbor_totals_error;
-}
 #endif
 
-static void sort(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int pair_count, int kernel_radius, uint64_t &attempted_swaps)
+static void sort(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps)
 {
 	int opaque_pixel_count = pair_count * 2;
-
-#ifdef DEBUG
-	uint64_t swaps = 0;
-#endif
 
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i1 = 0; i1 < pair_count; i1 += 2)
 	{
-#ifdef DEBUG
-		std::vector<double> neighbor_totals_error = get_neighbor_totals_error(neighbor_totals, pixels, width, height, kernel_radius);
-		bool no_error = std::all_of(neighbor_totals_error.begin(), neighbor_totals_error.end(), [](double d)
-									{ return d == 0.0f; });
-		if (!no_error)
-		{
-			std::cout << "There were " << swaps << " swaps in " << attempted_swaps << " attempted swaps" << std::endl;
-			print_neighbor_totals_error(neighbor_totals_error);
-			abort();
-		}
-#endif
-
 		int i2 = i1 + 1;
 
 		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count);
@@ -339,9 +331,7 @@ static void sort(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_
 			set_pixel(pixels, pos2, width, pixel1);
 			update_neighbors(neighbor_totals, pos2, pixel2, pixel1, width, height, kernel_radius);
 
-#ifdef DEBUG
 			swaps++;
-#endif
 		}
 
 		attempted_swaps++;
@@ -376,7 +366,7 @@ static std::string humanize_uint64(uint64_t n)
 	return ss.str() + " billion";
 }
 
-static void print_status(int saved_results, uint64_t prev_attempted_swaps, uint64_t attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
+static void print_status(int saved_results, uint64_t swaps, uint64_t prev_swaps, uint64_t attempted_swaps, uint64_t prev_attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
 {
 	const auto now = std::chrono::steady_clock::now();
 	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
@@ -384,8 +374,11 @@ static void print_status(int saved_results, uint64_t prev_attempted_swaps, uint6
 	std::cout
 		<< "Frame " << saved_results
 		<< ", " << seconds << " seconds"
+		<< ", " << humanize_uint64(swaps) << " swaps"
+		<< " (+" << humanize_uint64(swaps - prev_swaps) << ")"
 		<< ", " << humanize_uint64(attempted_swaps) << " attempted swaps"
 		<< " (+" << humanize_uint64(attempted_swaps - prev_attempted_swaps) << ")"
+		<< ", " << swaps / static_cast<double>(attempted_swaps) << " swaps/attemped swaps"
 		<< std::endl;
 }
 
@@ -463,18 +456,13 @@ static std::vector<float> get_neighbor_counts(int kernel_radius, size_t pixels_s
 			{
 				for (int kdx = kdx_min; kdx <= kdx_max; kdx++)
 				{
-					int distance_squared = kdx * kdx + kdy * kdy;
-					if (distance_squared > kernel_radius * kernel_radius)
-					{
-						continue;
-					}
-
 					int x = px + kdx;
 					int y = py + kdy;
 
 					// This doesn't work, since neighbor_totals stores the original uint16s added together,
 					// so doesn't work with fractions of lab values. Otherwise we can't subtract and add
-					// to it without losing more and more precision the longer the program runs!
+					// to it without losing more and more precision the longer the program runs.
+					// So the result wouldn't make sense if neighbor_total was divided by a non-integer.
 					// neighbor_counts[x + y * width] += 1 / static_cast<float>(distance_squared + 1);
 
 					neighbor_counts[x + y * width]++;
@@ -545,22 +533,18 @@ public:
 
 			case 's':
 				seconds_between_saves = std::stoi(optarg);
-				std::cout << "Set seconds_between_saves to " << seconds_between_saves << std::endl;
 				break;
 
 			case 'k':
 				kernel_radius = std::stoi(optarg);
-				std::cout << "Set kernel_radius to " << kernel_radius << std::endl;
 				break;
 
 			case 'n':
 				no_overwriting_output = true;
-				std::cout << "Set no_overwriting_output to " << no_overwriting_output << std::endl;
 				break;
 
 			case 'z':
 				saved_image_leading_zero_count = std::stoi(optarg);
-				std::cout << "Set saved_image_leading_zero_count to " << saved_image_leading_zero_count << std::endl;
 				break;
 
 			case '?':
@@ -617,12 +601,9 @@ private:
 
 int main(int argc, char *argv[])
 {
-	const auto start_time = std::chrono::steady_clock::now();
-
-	std::cout << "Started program" << std::endl;
-
 	Args args(argc, argv);
 
+	std::cout << "Reading input_npy_path" << std::endl;
 	cnpy::NpyArray arr = cnpy::npy_load(args.input_npy_path);
 	// This won't ever turn into a dangling pointer, since the vector stays a constant size
 	std::vector<uint16_t> pixels = arr.as_vec<uint16_t>();
@@ -633,23 +614,30 @@ int main(int argc, char *argv[])
 	int kernel_radius = args.kernel_radius;
 	int max_kernel_radius = std::max(width, height) - 1;
 	kernel_radius = std::min(kernel_radius, max_kernel_radius);
-	std::cout << "Using kernel radius " << kernel_radius << std::endl;
 
 	int pair_count = get_pair_count(pixels);
-	std::cout << "pair_count is " << pair_count << std::endl;
 
+	std::cout << "Calculating neighbor_totals" << std::endl;
 	std::vector<uint64_t> neighbor_totals = get_neighbor_totals(pixels, width, height, kernel_radius);
+#ifdef DEBUG
+	assert(neighbor_totals == get_neighbor_totals_slow(pixels, width, height, kernel_radius));
+#endif
 
+	std::cout << "Calculating neighbor_counts" << std::endl;
 	const std::vector<float> neighbor_counts = get_neighbor_counts(kernel_radius, pixels.size(), width, height);
 
 	uint32_t rand1 = 42424242;
 	uint32_t rand2 = 69696969;
+
+	uint64_t swaps = 0;
+	uint64_t prev_swaps = 0;
 
 	uint64_t attempted_swaps = 0;
 	uint64_t prev_attempted_swaps = 0;
 
 	int saved_results = 0;
 
+	std::cout << "Calculating normal_to_opaque_index_lut" << std::endl;
 	std::vector<size_t> normal_to_opaque_index_lut = get_normal_to_opaque_index_lut(pixels);
 
 	const std::filesystem::path output_npy_path = get_output_npy_path(
@@ -658,12 +646,15 @@ int main(int argc, char *argv[])
 		args.saved_image_leading_zero_count,
 		saved_results);
 
-	auto last_printed_time = std::chrono::steady_clock::now();
-
 	if (signal(SIGINT, sigint_handler_running) == SIG_ERR)
 	{
 		abort();
 	}
+
+	auto last_printed_time = std::chrono::steady_clock::now();
+
+	std::cout << "Started running" << std::endl;
+	const auto start_time = std::chrono::steady_clock::now();
 
 	while (running)
 	{
@@ -681,22 +672,23 @@ int main(int argc, char *argv[])
 			save_result(pixels, arr.shape, output_npy_path);
 			saved_results += 1;
 
-			print_status(saved_results, prev_attempted_swaps, attempted_swaps, start_time);
+			print_status(saved_results, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, start_time);
 
 			last_printed_time = std::chrono::steady_clock::now();
+			prev_swaps = swaps;
 			prev_attempted_swaps = attempted_swaps;
 		}
 
 		// Using unsigned wraparound
 		rand1++;
 
-		sort(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, rand1, rand2, pair_count, kernel_radius, attempted_swaps);
+		sort(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, rand1, rand2, pair_count, kernel_radius, swaps, attempted_swaps);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
 	saved_results += 1;
 
-	print_status(saved_results, prev_attempted_swaps, attempted_swaps, start_time);
+	print_status(saved_results, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, start_time);
 
 	std::cout << "Gootbye" << std::endl;
 

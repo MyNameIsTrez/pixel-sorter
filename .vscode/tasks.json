@@ -17,8 +17,10 @@
 				"cpp/main.cpp",
 				"cpp/cnpy.cpp",
 				"-lz",
-				// "-DDEBUG",
-				"-DNDEBUG",
+				"-DDEBUG",
+				// "-DNDEBUG",
+				// "-O3",
+				// "-march=native",
 			],
 			"problemMatcher": [
 				"$tsc"

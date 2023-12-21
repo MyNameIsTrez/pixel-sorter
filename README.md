@@ -90,3 +90,16 @@ mp4 files are larger and of lower quality than webm files, but are more widely s
 ### gif
 
 `ffmpeg -framerate 10.0 -i local/media/gifs/%1d.png -s 160x160 -sws_flags neighbor -r 30 output/gif.gif`
+
+## Profiling cpp/main.cpp
+
+Clone [FlameGraph](https://github.com/brendangregg/FlameGraph), open a terminal in that directory, and run these commands:
+
+```
+sudo perf record -F 99 -p $(pgrep a.out) -g -- sleep 10 &&
+sudo perf script > out.perf &&
+./stackcollapse-perf.pl out.perf > out.folded &&
+./flamegraph.pl out.folded > kernel.svg
+```
+
+Open `kernel.svg` in your browser and click around.
