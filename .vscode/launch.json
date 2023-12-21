@@ -20,9 +20,11 @@
 				"input_npy/big_palette.npy",
 				"output_npy/big_palette.npy",
 				"--kernel-radius",
-				"5",
+				"50",
 				"--seconds-between-saves",
-				"10",
+				"60",
+				"--sort-minority-threshold",
+				"0.01",
 				// ">neighbor_totals_error.log",
 			],
 			"setupCommands": [
