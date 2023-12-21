@@ -67,33 +67,6 @@ static void set_pixel(std::vector<uint16_t> &pixels, xy pos, int width, lab lab)
 	pixels[i + 2] = lab.b;
 }
 
-static void update_neighbors(std::vector<uint64_t> &neighbor_totals, xy center, lab old_pixel, lab new_pixel, int width, int height, int kernel_radius)
-{
-	// TODO: By padding the input image it should be possible to get rid of these bounds variables
-	int dy_min = -std::min(center.y, kernel_radius);
-	int dy_max = std::min(height - 1 - center.y, kernel_radius);
-
-	int dx_min = -std::min(center.x, kernel_radius);
-	int dx_max = std::min(width - 1 - center.x, kernel_radius);
-
-	for (int dy = dy_min; dy <= dy_max; dy++)
-	{
-		for (int dx = dx_min; dx <= dx_max; dx++)
-		{
-			xy neighbor = {center.x + dx, center.y + dy};
-
-			assert(neighbor_totals[get_index(neighbor, width) * 4 + 0] >= old_pixel.l);
-			assert(neighbor_totals[get_index(neighbor, width) * 4 + 1] >= old_pixel.a);
-			assert(neighbor_totals[get_index(neighbor, width) * 4 + 2] >= old_pixel.b);
-
-			// Replace an old pixel with a new pixel in neighbor_totals
-			neighbor_totals[get_index(neighbor, width) * 4 + 0] += -old_pixel.l + new_pixel.l;
-			neighbor_totals[get_index(neighbor, width) * 4 + 1] += -old_pixel.a + new_pixel.a;
-			neighbor_totals[get_index(neighbor, width) * 4 + 2] += -old_pixel.b + new_pixel.b;
-		}
-	}
-}
-
 static double get_color_difference(lab pixel, lab neighbor_pixel)
 {
 	double l_diff = pixel.l - neighbor_pixel.l;
@@ -261,7 +234,7 @@ std::vector<uint64_t> get_neighbor_totals(const std::vector<uint16_t> &pixels, i
 	return neighbor_totals;
 }
 
-static void sort(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps)
+static void sort(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, uint32_t rand1, uint32_t rand2, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps)
 {
 	int opaque_pixel_count = pair_count * 2;
 
@@ -285,11 +258,7 @@ static void sort(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_
 		if (should_swap(neighbor_totals, neighbor_counts, pixel1, pixel2, pos1, pos2, width))
 		{
 			set_pixel(pixels, pos1, width, pixel2);
-			update_neighbors(neighbor_totals, pos1, pixel1, pixel2, width, height, kernel_radius);
-
 			set_pixel(pixels, pos2, width, pixel1);
-			update_neighbors(neighbor_totals, pos2, pixel2, pixel1, width, height, kernel_radius);
-
 			swaps++;
 		}
 
@@ -618,7 +587,9 @@ int main(int argc, char *argv[])
 		// Using unsigned wraparound
 		rand1++;
 
-		sort(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, rand1, rand2, pair_count, kernel_radius, swaps, attempted_swaps);
+		sort(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, rand1, rand2, pair_count, swaps, attempted_swaps);
+
+		neighbor_totals = get_neighbor_totals(pixels, width, height, kernel_radius);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
