@@ -103,3 +103,5 @@ sudo perf script > out.perf &&
 ```
 
 Open `kernel.svg` in your browser and click around.
+
+You can view the generated assembly with Compiler Exampler [here](https://godbolt.org/z/Tjbrqn6b6).

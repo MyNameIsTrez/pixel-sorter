@@ -244,6 +244,8 @@ std::vector<uint64_t> get_neighbor_totals(const std::vector<uint16_t> &pixels, i
 
 			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
 			{
+				// TODO: Profile whether it's faster to replace this if-statement
+				// with a subtraction of the original value at kdy==0 after this loop
 				if (kdy != 0)
 				{
 					int y = py + kdy;
