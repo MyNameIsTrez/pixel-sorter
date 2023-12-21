@@ -503,7 +503,7 @@ static std::filesystem::path get_output_npy_path(
 	}
 }
 
-static void print_and_save(std::chrono::steady_clock::time_point &last_printed_time, const Args &args, int &saved_results, const std::vector<uint16_t> &pixels, const std::vector<size_t> &shape, uint64_t loops, uint64_t swaps, uint64_t prev_swaps, uint64_t attempted_swaps, uint64_t prev_attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
+static void print_and_save(std::chrono::steady_clock::time_point &last_printed_time, const Args &args, int &saved_results, const std::vector<uint16_t> &pixels, const std::vector<size_t> &shape, uint64_t &loops, uint64_t &swaps, uint64_t &prev_swaps, uint64_t &attempted_swaps, uint64_t &prev_attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
 {
 	// TODO: Profile whether getting the time here *every single loop* isn't too slow
 	const auto now = std::chrono::steady_clock::now();
@@ -647,7 +647,7 @@ int main(int argc, char *argv[])
 	// TODO: Set this to false at some point!!!
 	bool majority = true;
 
-	std::cout << "Running sort_majority()" << std::endl;
+	std::cout << "\nRunning sort_majority()" << std::endl;
 
 	auto last_printed_time = std::chrono::steady_clock::now();
 	const auto start_time = last_printed_time;
@@ -675,7 +675,7 @@ int main(int argc, char *argv[])
 
 	if (!majority)
 	{
-		std::cout << "Running sort_minority()" << std::endl;
+		std::cout << "\nRunning sort_minority()" << std::endl;
 	}
 
 	while (running)
