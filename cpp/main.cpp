@@ -631,8 +631,6 @@ int main(int argc, char *argv[])
 
 	double prev_attempted_swaps_per_swap = 0;
 
-	srand(time(NULL));
-
 	while (running && majority)
 	{
 		loops++;
