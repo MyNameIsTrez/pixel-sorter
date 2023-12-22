@@ -472,24 +472,28 @@ static std::string humanize_uint64(uint64_t n)
 	return ss.str() + " billion";
 }
 
-static void print_status(int saved_results, std::chrono::steady_clock::time_point &prev_now, uint64_t loops, uint64_t swaps, uint64_t prev_swaps, uint64_t attempted_swaps, uint64_t prev_attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
+static void print_status(int saved_results, std::chrono::steady_clock::time_point &prev_now, uint64_t loops, uint64_t swaps, uint64_t prev_swaps, uint64_t attempted_swaps, uint64_t prev_attempted_swaps, double &prev_attempted_swaps_per_swap, const std::chrono::steady_clock::time_point &start_time)
 {
 	const auto now = std::chrono::steady_clock::now();
 	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
 
+	double attempted_swaps_per_swap = attempted_swaps / static_cast<double>(swaps);
+
 	std::cout
 		<< "Frame " << saved_results
 		<< ", " << seconds << " seconds"
-		<< " (+" << std::chrono::duration_cast<std::chrono::milliseconds>(now - prev_now).count() << " ms)"
+		<< " (+" << std::chrono::duration_cast<std::chrono::milliseconds>(now - prev_now).count() / 1000.0 << ")"
 		<< ", " << humanize_uint64(loops) << " loops"
 		<< ", " << humanize_uint64(swaps) << " swaps"
 		<< " (+" << humanize_uint64(swaps - prev_swaps) << ")"
 		<< ", " << humanize_uint64(attempted_swaps) << " attempted swaps"
 		<< " (+" << humanize_uint64(attempted_swaps - prev_attempted_swaps) << ")"
-		<< ", " << attempted_swaps / static_cast<double>(swaps) << " attemped swaps/swap"
+		<< ", " << attempted_swaps_per_swap << " attemped swaps/swap"
+		<< " (+" << attempted_swaps_per_swap - prev_attempted_swaps_per_swap << ")"
 		<< std::endl;
 
 	prev_now = now;
+	prev_attempted_swaps_per_swap = attempted_swaps_per_swap;
 }
 
 static void save_result(const std::vector<uint16_t> &pixels, const std::vector<size_t> &shape, const std::filesystem::path &output_npy_path)
@@ -541,13 +545,13 @@ static void try_save(std::chrono::steady_clock::time_point &last_saved_time, con
 	}
 }
 
-static void try_print(std::chrono::steady_clock::time_point &last_printed_time, int seconds_between_prints, int &saved_results, std::chrono::steady_clock::time_point &prev_now, uint64_t &loops, uint64_t &swaps, uint64_t &prev_swaps, uint64_t &attempted_swaps, uint64_t &prev_attempted_swaps, const std::chrono::steady_clock::time_point &start_time)
+static void try_print(std::chrono::steady_clock::time_point &last_printed_time, int seconds_between_prints, int &saved_results, std::chrono::steady_clock::time_point &prev_now, uint64_t &loops, uint64_t &swaps, uint64_t &prev_swaps, uint64_t &attempted_swaps, uint64_t &prev_attempted_swaps, double &prev_attempted_swaps_per_swap, const std::chrono::steady_clock::time_point &start_time)
 {
 	const auto now = std::chrono::steady_clock::now();
 
 	if (now > last_printed_time + std::chrono::seconds(seconds_between_prints))
 	{
-		print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, start_time);
+		print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
 
 		prev_swaps = swaps;
 		prev_attempted_swaps = attempted_swaps;
@@ -683,11 +687,13 @@ int main(int argc, char *argv[])
 	auto last_printed_time = start_time;
 	auto last_saved_time = start_time;
 
+	double prev_attempted_swaps_per_swap = 0;
+
 	while (running && majority)
 	{
 		loops++;
 
-		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, start_time);
+		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
 		// Using unsigned wraparound
@@ -713,7 +719,7 @@ int main(int argc, char *argv[])
 	{
 		loops++;
 
-		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, start_time);
+		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
 		// Using unsigned wraparound
@@ -725,7 +731,7 @@ int main(int argc, char *argv[])
 	save_result(pixels, arr.shape, output_npy_path);
 	saved_results += 1;
 
-	print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, start_time);
+	print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
 
 	std::cout << "Gootbye" << std::endl;
 
