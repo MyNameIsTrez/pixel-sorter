@@ -3,4 +3,4 @@ input_npy/*.npy
 output/*.png
 output_npy/*.npy
 a.out
-neighbor_totals_error.log
+sort.log

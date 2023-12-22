@@ -4,13 +4,14 @@
 #include <filesystem>
 #include <getopt.h>
 #include <iomanip>
+#include <random>
 #include <signal.h>
 
 class Args
 {
 public:
 	Args(int argc, char *argv[])
-		: seconds_between_prints(1), seconds_between_saves(10), kernel_radius(100), no_overwriting_output(false), saved_image_leading_zero_count(4), sort_minority_threshold(0.1), input_npy_path(), output_npy_path()
+		: seconds_between_prints(1), seconds_between_saves(10), kernel_radius(100), no_overwriting_output(false), saved_image_leading_zero_count(4), sort_minority_threshold(5), input_npy_path(), output_npy_path()
 	{
 		int c;
 
@@ -121,7 +122,7 @@ private:
 			   "  -z SAVED_IMAGE_LEADING_ZERO_COUNT, --saved-image-leading-zero-count SAVED_IMAGE_LEADING_ZERO_COUNT\n"
 			   "                        The number of leading zeros on saved images; this has no effect if the -n switch isn't passed! (default: 4)\n"
 			   "  -m SORT_MINORITY_THRESHOLD, --sort-minority-threshold SORT_MINORITY_THRESHOLD\n"
-			   "                        The percentage under which sort_minority() will be used, which gradually gets faster the rarer swapping becomes, and is faster than sort_majority() when KERNEL_RADIUS is small (default: 0.1)\n";
+			   "                        The attempted_swaps / swaps after which sort_minority() will be used, which gradually gets faster the rarer swapping becomes. It is faster than sort_majority() when KERNEL_RADIUS is small (default: 5)\n";
 	}
 };
 
@@ -325,15 +326,13 @@ void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uin
 	}
 }
 
-static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps)
+static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng)
 {
-	int opaque_pixel_count = pair_count * 2;
-
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i = 0; i < pair_count; i += 2)
 	{
-		int rand_i1 = rand() % opaque_pixel_count;
-		int rand_i2 = rand() % opaque_pixel_count;
+		int rand_i1 = get_rand(rng);
+		int rand_i2 = get_rand(rng);
 
 		rand_i1 = normal_to_opaque_index_lut[rand_i1];
 		rand_i2 = normal_to_opaque_index_lut[rand_i2];
@@ -359,15 +358,13 @@ static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &
 	}
 }
 
-static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps)
+static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng)
 {
-	int opaque_pixel_count = pair_count * 2;
-
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i = 0; i < pair_count; i += 2)
 	{
-		int rand_i1 = rand() % opaque_pixel_count;
-		int rand_i2 = rand() % opaque_pixel_count;
+		int rand_i1 = get_rand(rng);
+		int rand_i2 = get_rand(rng);
 
 		rand_i1 = normal_to_opaque_index_lut[rand_i1];
 		rand_i2 = normal_to_opaque_index_lut[rand_i2];
@@ -389,7 +386,7 @@ static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &
 	}
 }
 
-static std::string humanize_uint64(uint64_t n)
+static std::string humanize_number(double n)
 {
 	std::ostringstream ss;
 	ss << std::fixed << std::setprecision(1);
@@ -417,27 +414,64 @@ static std::string humanize_uint64(uint64_t n)
 	return ss.str() + " billion";
 }
 
-static void print_status(int saved_results, std::chrono::steady_clock::time_point &prev_now, uint64_t loops, uint64_t swaps, uint64_t prev_swaps, uint64_t attempted_swaps, uint64_t prev_attempted_swaps, double &prev_attempted_swaps_per_swap, const std::chrono::steady_clock::time_point &start_time)
+static std::string humanize_seconds(double double_seconds)
+{
+	uint64_t uint64_seconds = double_seconds;
+
+	std::string returned;
+
+	if (uint64_seconds >= 60 * 60)
+	{
+		uint64_t hours = uint64_seconds / 60 / 60;
+		std::ostringstream ss;
+		ss << std::fixed << std::setprecision(0);
+		ss << hours;
+		returned += ss.str() + " hour" + (hours == 1 ? "" : "s") + " and ";
+	}
+
+	if (uint64_seconds >= 60)
+	{
+		uint64_t minutes = (uint64_seconds / 60) % 60;
+		std::ostringstream ss;
+		ss << std::fixed << std::setprecision(0);
+		ss << minutes;
+		returned += ss.str() + " minute" + (minutes == 1 ? "" : "s") + " and ";
+	}
+
+	double_seconds = std::fmod(double_seconds, 60);
+	std::ostringstream ss;
+	ss << std::fixed << std::setprecision(1);
+	ss << double_seconds;
+	returned += ss.str() + " second" + (double_seconds == 1 ? "" : "s");
+
+	return returned;
+}
+
+static void print_status(int saved_results, std::chrono::steady_clock::time_point &prev_now, uint64_t loops, uint64_t swaps, uint64_t prev_swaps, uint64_t attempted_swaps, uint64_t prev_attempted_swaps, double &prev_attempted_swaps_per_second, double &prev_attempted_swaps_per_swap, const std::chrono::steady_clock::time_point &start_time)
 {
 	const auto now = std::chrono::steady_clock::now();
-	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
+	const double seconds = std::chrono::duration<double>(now - start_time).count();
 
+	double attempted_swaps_per_second = attempted_swaps / static_cast<double>(seconds);
 	double attempted_swaps_per_swap = attempted_swaps / static_cast<double>(swaps);
 
 	std::cout
 		<< "Frame " << saved_results
-		<< ", " << seconds << " seconds"
-		<< " (+" << std::chrono::duration_cast<std::chrono::milliseconds>(now - prev_now).count() / 1000.0 << ")"
-		<< ", " << humanize_uint64(loops) << " loops"
-		<< ", " << humanize_uint64(swaps) << " swaps"
-		<< " (+" << humanize_uint64(swaps - prev_swaps) << ")"
-		<< ", " << humanize_uint64(attempted_swaps) << " attempted swaps"
-		<< " (+" << humanize_uint64(attempted_swaps - prev_attempted_swaps) << ")"
-		<< ", " << attempted_swaps_per_swap << " attemped swaps/swap"
-		<< " (+" << attempted_swaps_per_swap - prev_attempted_swaps_per_swap << ")"
+		<< ", " << humanize_seconds(seconds)
+		<< " (+" << humanize_seconds(std::chrono::duration<double>(now - prev_now).count()) << ")"
+		<< ", " << humanize_number(loops) << " loops"
+		<< ", " << humanize_number(swaps) << " swaps"
+		<< " (+" << humanize_number(swaps - prev_swaps) << ")"
+		<< ", " << humanize_number(attempted_swaps) << " attempted swaps"
+		<< " (+" << humanize_number(attempted_swaps - prev_attempted_swaps) << ")"
+		<< ", " << humanize_number(attempted_swaps_per_second) << " attempted swaps/second"
+		<< " (+" << humanize_number(attempted_swaps_per_second - prev_attempted_swaps_per_second) << ")"
+		<< ", " << humanize_number(attempted_swaps_per_swap) << " attemped swaps/swap"
+		<< " (+" << humanize_number(attempted_swaps_per_swap - prev_attempted_swaps_per_swap) << ")"
 		<< std::endl;
 
 	prev_now = now;
+	prev_attempted_swaps_per_second = attempted_swaps_per_second;
 	prev_attempted_swaps_per_swap = attempted_swaps_per_swap;
 }
 
@@ -490,13 +524,13 @@ static void try_save(std::chrono::steady_clock::time_point &last_saved_time, con
 	}
 }
 
-static void try_print(std::chrono::steady_clock::time_point &last_printed_time, int seconds_between_prints, int &saved_results, std::chrono::steady_clock::time_point &prev_now, uint64_t &loops, uint64_t &swaps, uint64_t &prev_swaps, uint64_t &attempted_swaps, uint64_t &prev_attempted_swaps, double &prev_attempted_swaps_per_swap, const std::chrono::steady_clock::time_point &start_time)
+static void try_print(std::chrono::steady_clock::time_point &last_printed_time, int seconds_between_prints, int &saved_results, std::chrono::steady_clock::time_point &prev_now, uint64_t &loops, uint64_t &swaps, uint64_t &prev_swaps, uint64_t &attempted_swaps, uint64_t &prev_attempted_swaps, double &prev_attempted_swaps_per_second, double &prev_attempted_swaps_per_swap, const std::chrono::steady_clock::time_point &start_time)
 {
 	const auto now = std::chrono::steady_clock::now();
 
 	if (now > last_printed_time + std::chrono::seconds(seconds_between_prints))
 	{
-		print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
+		print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 
 		prev_swaps = swaps;
 		prev_attempted_swaps = attempted_swaps;
@@ -587,6 +621,8 @@ int main(int argc, char *argv[])
 
 	int pair_count = get_pair_count(pixels);
 
+	int opaque_pixel_count = pair_count * 2;
+
 	std::cout << "Calculating neighbor_totals" << std::endl;
 	std::vector<uint64_t> neighbor_totals(pixels.size());
 	std::vector<uint64_t> neighbor_totals_copy(neighbor_totals);
@@ -619,8 +655,18 @@ int main(int argc, char *argv[])
 
 	uint64_t loops = 0;
 
-	// TODO: Set this to false at some point!!!
 	bool majority = true;
+
+	double prev_attempted_swaps_per_second = 0;
+	double prev_attempted_swaps_per_swap = 0;
+
+	// A seed for the random number generator
+	std::random_device rd;
+	// mersenne_twister_engine seeded with rd()
+	// TODO: Profile whether a faster RNG function should be used
+	std::mt19937 rng(rd());
+	// Range [0, opaque_pixel_count)
+	std::uniform_int_distribution<std::mt19937::result_type> get_rand(0, opaque_pixel_count - 1);
 
 	std::cout << "\nRunning sort_majority()" << std::endl;
 
@@ -629,21 +675,19 @@ int main(int argc, char *argv[])
 	auto last_printed_time = start_time;
 	auto last_saved_time = start_time;
 
-	double prev_attempted_swaps_per_swap = 0;
-
 	while (running && majority)
 	{
 		loops++;
 
-		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
+		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
-		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, pair_count, swaps, attempted_swaps);
+		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, pair_count, swaps, attempted_swaps, get_rand, rng);
 
 		get_neighbor_totals(neighbor_totals, neighbor_totals_copy, pixels, width, height, kernel_radius);
 
 		// TODO: Profile whether this casting is slow
-		if (swaps / static_cast<double>(attempted_swaps) < args.sort_minority_threshold)
+		if (attempted_swaps / static_cast<double>(swaps) > args.sort_minority_threshold)
 		{
 			majority = false;
 		}
@@ -658,16 +702,16 @@ int main(int argc, char *argv[])
 	{
 		loops++;
 
-		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
+		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
-		sort_minority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, pair_count, kernel_radius, swaps, attempted_swaps);
+		sort_minority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, pair_count, kernel_radius, swaps, attempted_swaps, get_rand, rng);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
 	saved_results += 1;
 
-	print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
+	print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 
 	std::cout << "Gootbye" << std::endl;
 
