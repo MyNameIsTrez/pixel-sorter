@@ -264,57 +264,6 @@ static xy get_pos(int i, int width)
 	return {i % width, i / width};
 }
 
-static uint64_t round_up_to_power_of_2(uint64_t n)
-{
-	// If n isn't a power of 2 already
-	if (n & (n - 1))
-	{
-		uint64_t i;
-
-		// TODO: Can "1ull" be replaced with "1" everywhere here?
-
-		// Count the number of times n can be right-shifted
-		for (i = 0; n > 1; i++)
-		{
-			n >>= 1ull;
-		}
-
-		// Use that number of times to round it up to a power of 2
-		return 1ull << (i + 1ull);
-	}
-
-	return n;
-}
-
-static uint64_t lcg(uint64_t capacity, uint64_t val, uint32_t multiplier_rand, uint32_t addition_rand)
-{
-	uint64_t modulus = round_up_to_power_of_2(capacity);
-
-	// Must be odd so it is coprime to modulus
-	uint64_t multiplier = (multiplier_rand * 2 + 1) % modulus;
-
-	uint64_t addition = addition_rand % modulus;
-
-	// Modulus must be power of two
-	assert((modulus & (modulus - 1)) == 0);
-
-	return ((val * multiplier) + addition) & (modulus - 1);
-}
-
-static int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_pixel_count)
-{
-	assert(i < opaque_pixel_count);
-
-	int shuffled = i;
-
-	do
-	{
-		shuffled = lcg(opaque_pixel_count, shuffled, rand1, rand2);
-	} while (shuffled >= opaque_pixel_count);
-
-	return shuffled;
-}
-
 // This is a convolution function; see this example, where kernel_radius is 1:
 // (x=0, y=0) aka 1 is the center, and the neighbor total is 1+2+4+5:
 // [1 2] 3
@@ -376,23 +325,21 @@ void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uin
 	}
 }
 
-static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps)
+static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps)
 {
 	int opaque_pixel_count = pair_count * 2;
 
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
-	for (int i1 = 0; i1 < pair_count; i1 += 2)
+	for (int i = 0; i < pair_count; i += 2)
 	{
-		int i2 = i1 + 1;
+		int rand_i1 = rand() % opaque_pixel_count;
+		int rand_i2 = rand() % opaque_pixel_count;
 
-		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count);
-		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2, opaque_pixel_count);
+		rand_i1 = normal_to_opaque_index_lut[rand_i1];
+		rand_i2 = normal_to_opaque_index_lut[rand_i2];
 
-		shuffled_i1 = normal_to_opaque_index_lut[shuffled_i1];
-		shuffled_i2 = normal_to_opaque_index_lut[shuffled_i2];
-
-		xy pos1 = get_pos(shuffled_i1, width);
-		xy pos2 = get_pos(shuffled_i2, width);
+		xy pos1 = get_pos(rand_i1, width);
+		xy pos2 = get_pos(rand_i2, width);
 
 		lab pixel1 = get_pixel(pixels, pos1, width);
 		lab pixel2 = get_pixel(pixels, pos2, width);
@@ -412,23 +359,21 @@ static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &
 	}
 }
 
-static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, uint32_t rand1, uint32_t rand2, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps)
+static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps)
 {
 	int opaque_pixel_count = pair_count * 2;
 
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
-	for (int i1 = 0; i1 < pair_count; i1 += 2)
+	for (int i = 0; i < pair_count; i += 2)
 	{
-		int i2 = i1 + 1;
+		int rand_i1 = rand() % opaque_pixel_count;
+		int rand_i2 = rand() % opaque_pixel_count;
 
-		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count);
-		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2, opaque_pixel_count);
+		rand_i1 = normal_to_opaque_index_lut[rand_i1];
+		rand_i2 = normal_to_opaque_index_lut[rand_i2];
 
-		shuffled_i1 = normal_to_opaque_index_lut[shuffled_i1];
-		shuffled_i2 = normal_to_opaque_index_lut[shuffled_i2];
-
-		xy pos1 = get_pos(shuffled_i1, width);
-		xy pos2 = get_pos(shuffled_i2, width);
+		xy pos1 = get_pos(rand_i1, width);
+		xy pos2 = get_pos(rand_i2, width);
 
 		lab pixel1 = get_pixel(pixels, pos1, width);
 		lab pixel2 = get_pixel(pixels, pos2, width);
@@ -650,9 +595,6 @@ int main(int argc, char *argv[])
 	std::cout << "Calculating neighbor_counts" << std::endl;
 	const std::vector<float> neighbor_counts = get_neighbor_counts(kernel_radius, width, height);
 
-	uint32_t rand1 = 42424242;
-	uint32_t rand2 = 69696969;
-
 	uint64_t swaps = 0;
 	uint64_t prev_swaps = 0;
 
@@ -689,6 +631,8 @@ int main(int argc, char *argv[])
 
 	double prev_attempted_swaps_per_swap = 0;
 
+	srand(time(NULL));
+
 	while (running && majority)
 	{
 		loops++;
@@ -696,10 +640,7 @@ int main(int argc, char *argv[])
 		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
-		// Using unsigned wraparound
-		rand1++;
-
-		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, rand1, rand2, pair_count, swaps, attempted_swaps);
+		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, pair_count, swaps, attempted_swaps);
 
 		get_neighbor_totals(neighbor_totals, neighbor_totals_copy, pixels, width, height, kernel_radius);
 
@@ -722,10 +663,7 @@ int main(int argc, char *argv[])
 		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
-		// Using unsigned wraparound
-		rand1++;
-
-		sort_minority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, rand1, rand2, pair_count, kernel_radius, swaps, attempted_swaps);
+		sort_minority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, pair_count, kernel_radius, swaps, attempted_swaps);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
