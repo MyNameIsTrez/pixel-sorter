@@ -284,6 +284,8 @@ void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uin
 	{
 		for (int px = 0; px < width; px++)
 		{
+			int pi = (px + py * width) * 4;
+
 			int kdx_min = -std::min(px, kernel_radius);
 			int kdx_max = std::min(width - 1 - px, kernel_radius);
 
@@ -291,9 +293,9 @@ void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uin
 			{
 				int x = px + kdx;
 
-				neighbor_totals[(px + py * width) * 4 + 0] += pixels[(x + py * width) * 4 + 0];
-				neighbor_totals[(px + py * width) * 4 + 1] += pixels[(x + py * width) * 4 + 1];
-				neighbor_totals[(px + py * width) * 4 + 2] += pixels[(x + py * width) * 4 + 2];
+				neighbor_totals[pi + 0] += pixels[(x + py * width) * 4 + 0];
+				neighbor_totals[pi + 1] += pixels[(x + py * width) * 4 + 1];
+				neighbor_totals[pi + 2] += pixels[(x + py * width) * 4 + 2];
 			}
 		}
 	}
@@ -306,20 +308,22 @@ void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uin
 	{
 		for (int px = 0; px < width; px++)
 		{
+			int pi = (px + py * width) * 4;
+
 			int kdy_min = -std::min(py, kernel_radius);
 			int kdy_max = std::min(height - 1 - py, kernel_radius);
 
-			neighbor_totals[(px + py * width) * 4 + 0] = 0;
-			neighbor_totals[(px + py * width) * 4 + 1] = 0;
-			neighbor_totals[(px + py * width) * 4 + 2] = 0;
+			neighbor_totals[pi + 0] = 0;
+			neighbor_totals[pi + 1] = 0;
+			neighbor_totals[pi + 2] = 0;
 
 			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
 			{
 				int y = py + kdy;
 
-				neighbor_totals[(px + py * width) * 4 + 0] += neighbor_totals_copy[(px + y * width) * 4 + 0];
-				neighbor_totals[(px + py * width) * 4 + 1] += neighbor_totals_copy[(px + y * width) * 4 + 1];
-				neighbor_totals[(px + py * width) * 4 + 2] += neighbor_totals_copy[(px + y * width) * 4 + 2];
+				neighbor_totals[pi + 0] += neighbor_totals_copy[(px + y * width) * 4 + 0];
+				neighbor_totals[pi + 1] += neighbor_totals_copy[(px + y * width) * 4 + 1];
+				neighbor_totals[pi + 2] += neighbor_totals_copy[(px + y * width) * 4 + 2];
 			}
 		}
 	}
