@@ -162,14 +162,14 @@ static void sigint_handler_running(int signum)
 	running = false;
 }
 
-static size_t get_index(xy pos, int width)
+static int get_index(xy pos, int width)
 {
 	return pos.x + pos.y * width;
 }
 
 static lab get_pixel(const std::vector<uint16_t> &pixels, xy pos, int width)
 {
-	size_t i = get_index(pos, width) * 4;
+	int i = get_index(pos, width) * 4;
 
 	uint16_t l = pixels[i + 0];
 	uint16_t a = pixels[i + 1];
@@ -180,7 +180,7 @@ static lab get_pixel(const std::vector<uint16_t> &pixels, xy pos, int width)
 
 static void set_pixel(std::vector<uint16_t> &pixels, xy pos, int width, lab lab)
 {
-	size_t i = get_index(pos, width) * 4;
+	int i = get_index(pos, width) * 4;
 
 	pixels[i + 0] = lab.l;
 	pixels[i + 1] = lab.a;
@@ -228,7 +228,7 @@ static double get_color_difference(lab pixel, lab neighbor_pixel)
 
 static lab get_neighbor_average(const std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, xy pos, int width)
 {
-	size_t i = get_index(pos, width) * 4;
+	int i = get_index(pos, width) * 4;
 
 	uint64_t l = neighbor_totals[i + 0];
 	uint64_t a = neighbor_totals[i + 1];
@@ -434,7 +434,7 @@ static void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vec
 	vertical_pass(neighbor_totals, neighbor_totals_copy, width, height, kernel_radius);
 }
 
-static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng, bool transparent)
+static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<int> &normal_to_opaque_index_lut, int width, int height, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng, bool transparent)
 {
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i = 0; i < pair_count; i += 2)
@@ -469,7 +469,7 @@ static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &
 	}
 }
 
-static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng, bool transparent)
+static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<int> &normal_to_opaque_index_lut, int width, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng, bool transparent)
 {
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i = 0; i < pair_count; i += 2)
@@ -653,12 +653,12 @@ static void try_print(std::chrono::steady_clock::time_point &last_printed_time, 
 	}
 }
 
-static std::vector<size_t> get_normal_to_opaque_index_lut(const std::vector<uint16_t> &pixels)
+static std::vector<int> get_normal_to_opaque_index_lut(const std::vector<uint16_t> &pixels, int pixels_size)
 {
-	std::vector<size_t> normal_to_opaque_index_lut;
+	std::vector<int> normal_to_opaque_index_lut;
 
-	size_t offset = 0;
-	for (size_t i = 3; i < pixels.size(); i += 4)
+	int offset = 0;
+	for (int i = 3; i < pixels_size; i += 4)
 	{
 		uint16_t alpha = pixels[i];
 
@@ -695,10 +695,10 @@ static std::vector<float> get_neighbor_counts(int kernel_radius, int width, int 
 	return neighbor_counts;
 }
 
-static int get_opaque_pixel_count(const std::vector<uint16_t> &pixels)
+static int get_opaque_pixel_count(const std::vector<uint16_t> &pixels, int pixels_size)
 {
 	int opaque_pixel_count = 0;
-	for (size_t i = 3; i < pixels.size(); i += 4)
+	for (int i = 3; i < pixels_size; i += 4)
 	{
 		if (pixels[i] != 0)
 		{
@@ -733,9 +733,10 @@ int main(int argc, char *argv[])
 	int max_kernel_radius = std::max(width, height) - 1;
 	kernel_radius = std::min(kernel_radius, max_kernel_radius);
 
-	int opaque_pixel_count = get_opaque_pixel_count(pixels);
+	int pixels_size = pixels.size();
+	int opaque_pixel_count = get_opaque_pixel_count(pixels, pixels_size);
 	int pair_count = opaque_pixel_count / 2;
-	bool transparent = static_cast<int>(pixels.size() / 4) != opaque_pixel_count;
+	bool transparent = pixels_size / 4 != opaque_pixel_count;
 
 	std::cout << "Calculating neighbor_totals" << std::endl;
 	std::vector<uint64_t> neighbor_totals(pixels.size());
@@ -754,7 +755,7 @@ int main(int argc, char *argv[])
 	int saved_results = 0;
 
 	std::cout << "Calculating normal_to_opaque_index_lut" << std::endl;
-	std::vector<size_t> normal_to_opaque_index_lut = get_normal_to_opaque_index_lut(pixels);
+	std::vector<int> normal_to_opaque_index_lut = get_normal_to_opaque_index_lut(pixels, pixels_size);
 
 	const std::filesystem::path output_npy_path = get_output_npy_path(
 		args.output_npy_path,
