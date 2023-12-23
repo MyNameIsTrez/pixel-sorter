@@ -434,7 +434,7 @@ static void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vec
 	vertical_pass(neighbor_totals, neighbor_totals_copy, width, height, kernel_radius);
 }
 
-static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng)
+static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng, bool transparent)
 {
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i = 0; i < pair_count; i += 2)
@@ -442,8 +442,11 @@ static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &
 		int rand_i1 = get_rand(rng);
 		int rand_i2 = get_rand(rng);
 
-		rand_i1 = normal_to_opaque_index_lut[rand_i1];
-		rand_i2 = normal_to_opaque_index_lut[rand_i2];
+		if (transparent)
+		{
+			rand_i1 = normal_to_opaque_index_lut[rand_i1];
+			rand_i2 = normal_to_opaque_index_lut[rand_i2];
+		}
 
 		xy pos1 = get_pos(rand_i1, width);
 		xy pos2 = get_pos(rand_i2, width);
@@ -466,7 +469,7 @@ static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &
 	}
 }
 
-static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng)
+static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int pair_count, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng, bool transparent)
 {
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i = 0; i < pair_count; i += 2)
@@ -474,8 +477,11 @@ static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &
 		int rand_i1 = get_rand(rng);
 		int rand_i2 = get_rand(rng);
 
-		rand_i1 = normal_to_opaque_index_lut[rand_i1];
-		rand_i2 = normal_to_opaque_index_lut[rand_i2];
+		if (transparent)
+		{
+			rand_i1 = normal_to_opaque_index_lut[rand_i1];
+			rand_i2 = normal_to_opaque_index_lut[rand_i2];
+		}
 
 		xy pos1 = get_pos(rand_i1, width);
 		xy pos2 = get_pos(rand_i2, width);
@@ -689,7 +695,7 @@ static std::vector<float> get_neighbor_counts(int kernel_radius, int width, int 
 	return neighbor_counts;
 }
 
-static int get_pair_count(const std::vector<uint16_t> &pixels)
+static int get_opaque_pixel_count(const std::vector<uint16_t> &pixels)
 {
 	int opaque_pixel_count = 0;
 	for (size_t i = 3; i < pixels.size(); i += 4)
@@ -708,7 +714,7 @@ static int get_pair_count(const std::vector<uint16_t> &pixels)
 		exit(EXIT_FAILURE);
 	}
 
-	return opaque_pixel_count / 2;
+	return opaque_pixel_count;
 }
 
 int main(int argc, char *argv[])
@@ -727,9 +733,9 @@ int main(int argc, char *argv[])
 	int max_kernel_radius = std::max(width, height) - 1;
 	kernel_radius = std::min(kernel_radius, max_kernel_radius);
 
-	int pair_count = get_pair_count(pixels);
-
-	int opaque_pixel_count = pair_count * 2;
+	int opaque_pixel_count = get_opaque_pixel_count(pixels);
+	int pair_count = opaque_pixel_count / 2;
+	bool transparent = static_cast<int>(pixels.size() / 4) != opaque_pixel_count;
 
 	std::cout << "Calculating neighbor_totals" << std::endl;
 	std::vector<uint64_t> neighbor_totals(pixels.size());
@@ -790,7 +796,7 @@ int main(int argc, char *argv[])
 		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
-		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, pair_count, swaps, attempted_swaps, get_rand, rng);
+		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, pair_count, swaps, attempted_swaps, get_rand, rng, transparent);
 
 		get_neighbor_totals(neighbor_totals, neighbor_totals_copy, pixels, width, height, kernel_radius);
 
@@ -813,7 +819,7 @@ int main(int argc, char *argv[])
 		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
-		sort_minority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, pair_count, kernel_radius, swaps, attempted_swaps, get_rand, rng);
+		sort_minority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, pair_count, kernel_radius, swaps, attempted_swaps, get_rand, rng, transparent);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
