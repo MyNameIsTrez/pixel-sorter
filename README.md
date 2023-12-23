@@ -105,3 +105,5 @@ sudo perf script > out.perf &&
 Open `kernel.svg` in your browser and click around.
 
 You can view the generated assembly with Compiler Exampler [here](https://godbolt.org/z/Tjbrqn6b6).
+
+`perf top -a` is an excellent sampler for finding assembly instructions that take the biggest percentage of the program's time, and it even shows the original lines alongside the assembly!

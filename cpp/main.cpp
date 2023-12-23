@@ -273,7 +273,7 @@ static void vertical_pass(std::vector<uint64_t> &neighbor_totals, std::vector<ui
 		uint64_t neighbor_total_a = 0;
 		uint64_t neighbor_total_b = 0;
 
-		// Give the top pixel its final neighbor total
+		// Give the topmost pixel its final neighbor total
 		for (int kdy = 0; kdy <= kernel_radius; kdy++)
 		{
 			int pi = (px + kdy * width) * 4;
@@ -286,7 +286,7 @@ static void vertical_pass(std::vector<uint64_t> &neighbor_totals, std::vector<ui
 		neighbor_totals[px * 4 + 1] = neighbor_total_a;
 		neighbor_totals[px * 4 + 2] = neighbor_total_b;
 
-		// Give the rest of the top pixels their final neighbor total
+		// Give the rest of the top edge pixels their final neighbor total
 		// Given a height of 10 and kernel_radius of 2, this loops py=[1, 2]
 		for (int py = 1; py <= kernel_radius; py++)
 		{
@@ -321,7 +321,7 @@ static void vertical_pass(std::vector<uint64_t> &neighbor_totals, std::vector<ui
 			neighbor_totals[pi + 2] = neighbor_total_b;
 		}
 
-		// Give the rest of the bottom pixels their final neighbor total
+		// Give the rest of the bottom edge pixels their final neighbor total
 		// Given a height of 10 and kernel_radius of 2, this loops py=[8, 9]
 		for (int py = height - kernel_radius; py < height; py++)
 		{
@@ -342,21 +342,71 @@ static void horizontal_pass(std::vector<uint64_t> &neighbor_totals, const std::v
 {
 	for (int py = 0; py < height; py++)
 	{
-		for (int px = 0; px < width; px++)
+		uint64_t neighbor_total_l = 0;
+		uint64_t neighbor_total_a = 0;
+		uint64_t neighbor_total_b = 0;
+
+		// Give the leftmost pixel its final neighbor total
+		for (int kdx = 0; kdx <= kernel_radius; kdx++)
 		{
+			int pi = (kdx + py * width) * 4;
+
+			neighbor_total_l += pixels[pi + 0];
+			neighbor_total_a += pixels[pi + 1];
+			neighbor_total_b += pixels[pi + 2];
+		}
+		neighbor_totals[py * width * 4 + 0] = neighbor_total_l;
+		neighbor_totals[py * width * 4 + 1] = neighbor_total_a;
+		neighbor_totals[py * width * 4 + 2] = neighbor_total_b;
+
+		// Give the rest of the left edge pixels their final neighbor total
+		// Given a width of 10 and kernel_radius of 2, this loops px=[1, 2]
+		for (int px = 1; px <= kernel_radius; px++)
+		{
+			int pi_added = (px + kernel_radius + py * width) * 4;
+			neighbor_total_l += pixels[pi_added + 0];
+			neighbor_total_a += pixels[pi_added + 1];
+			neighbor_total_b += pixels[pi_added + 2];
+
 			int pi = (px + py * width) * 4;
+			neighbor_totals[pi + 0] = neighbor_total_l;
+			neighbor_totals[pi + 1] = neighbor_total_a;
+			neighbor_totals[pi + 2] = neighbor_total_b;
+		}
 
-			int kdx_min = -std::min(px, kernel_radius);
-			int kdx_max = std::min(width - 1 - px, kernel_radius);
+		// Give the center pixels (they are the majority) their final neighbor total
+		// Given a width of 10 and kernel_radius of 2, this loops px=[3, 7]
+		for (int px = kernel_radius + 1; px < width - kernel_radius; px++)
+		{
+			int pi_subtracted = (px - kernel_radius - 1 + py * width) * 4;
+			neighbor_total_l -= pixels[pi_subtracted + 0];
+			neighbor_total_a -= pixels[pi_subtracted + 1];
+			neighbor_total_b -= pixels[pi_subtracted + 2];
 
-			for (int kdx = kdx_min; kdx <= kdx_max; kdx++)
-			{
-				int x = px + kdx;
+			int pi_added = (px + kernel_radius + py * width) * 4;
+			neighbor_total_l += pixels[pi_added + 0];
+			neighbor_total_a += pixels[pi_added + 1];
+			neighbor_total_b += pixels[pi_added + 2];
 
-				neighbor_totals[pi + 0] += pixels[(x + py * width) * 4 + 0];
-				neighbor_totals[pi + 1] += pixels[(x + py * width) * 4 + 1];
-				neighbor_totals[pi + 2] += pixels[(x + py * width) * 4 + 2];
-			}
+			int pi = (px + py * width) * 4;
+			neighbor_totals[pi + 0] = neighbor_total_l;
+			neighbor_totals[pi + 1] = neighbor_total_a;
+			neighbor_totals[pi + 2] = neighbor_total_b;
+		}
+
+		// Give the rest of the right edge pixels their final neighbor total
+		// Given a width of 10 and kernel_radius of 2, this loops px=[8, 9]
+		for (int px = width - kernel_radius; px < width; px++)
+		{
+			int pi_subtracted = (px - kernel_radius - 1 + py * width) * 4;
+			neighbor_total_l -= pixels[pi_subtracted + 0];
+			neighbor_total_a -= pixels[pi_subtracted + 1];
+			neighbor_total_b -= pixels[pi_subtracted + 2];
+
+			int pi = (px + py * width) * 4;
+			neighbor_totals[pi + 0] = neighbor_total_l;
+			neighbor_totals[pi + 1] = neighbor_total_a;
+			neighbor_totals[pi + 2] = neighbor_total_b;
 		}
 	}
 }
@@ -378,6 +428,7 @@ static void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vec
 	horizontal_pass(neighbor_totals, pixels, width, height, kernel_radius);
 
 	// TODO: Check using the assembly whether this isn't doing useless bounds/resize checks
+	// TODO: With the new vertical_pass, I think it should be possible to get rid of this copy entirely?
 	neighbor_totals_copy = neighbor_totals;
 
 	vertical_pass(neighbor_totals, neighbor_totals_copy, width, height, kernel_radius);
