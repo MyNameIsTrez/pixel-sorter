@@ -265,21 +265,81 @@ static xy get_pos(int i, int width)
 	return {i % width, i / width};
 }
 
-// This is a convolution function; see this example, where kernel_radius is 1:
-// (x=0, y=0) aka 1 is the center, and the neighbor total is 1+2+4+5:
-// [1 2] 3
-// [4 5] 6
-// (x=1, y=0) aka 2 is the center, and the neighbor total is 1+2+3+4+5+6:
-// [1 2 3]
-// [4 5 6]
-// (x=2, y=0) aka 3 is the center, and the neighbor total is 2+3+5+6:
-// 1 [2 3]
-// 4 [5 6]
-void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uint64_t> &neighbor_totals_copy, const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
+static void vertical_pass(std::vector<uint64_t> &neighbor_totals, std::vector<uint64_t> &neighbor_totals_copy, int width, int height, int kernel_radius)
 {
-	std::fill(neighbor_totals.begin(), neighbor_totals.end(), 0);
+	for (int px = 0; px < width; px++)
+	{
+		uint64_t neighbor_total_l = 0;
+		uint64_t neighbor_total_a = 0;
+		uint64_t neighbor_total_b = 0;
 
-	// Horizontal pass
+		// Give the top pixel its final neighbor total
+		for (int kdy = 0; kdy <= kernel_radius; kdy++)
+		{
+			int pi = (px + kdy * width) * 4;
+
+			neighbor_total_l += neighbor_totals_copy[pi + 0];
+			neighbor_total_a += neighbor_totals_copy[pi + 1];
+			neighbor_total_b += neighbor_totals_copy[pi + 2];
+		}
+		neighbor_totals[px * 4 + 0] = neighbor_total_l;
+		neighbor_totals[px * 4 + 1] = neighbor_total_a;
+		neighbor_totals[px * 4 + 2] = neighbor_total_b;
+
+		// Give the rest of the top pixels their final neighbor total
+		// Given a height of 10 and kernel_radius of 2, this loops py=[1, 2]
+		for (int py = 1; py <= kernel_radius; py++)
+		{
+			int pi_added = (px + (py + kernel_radius) * width) * 4;
+			neighbor_total_l += neighbor_totals_copy[pi_added + 0];
+			neighbor_total_a += neighbor_totals_copy[pi_added + 1];
+			neighbor_total_b += neighbor_totals_copy[pi_added + 2];
+
+			int pi = (px + py * width) * 4;
+			neighbor_totals[pi + 0] = neighbor_total_l;
+			neighbor_totals[pi + 1] = neighbor_total_a;
+			neighbor_totals[pi + 2] = neighbor_total_b;
+		}
+
+		// Give the center pixels (they are the majority) their final neighbor total
+		// Given a height of 10 and kernel_radius of 2, this loops py=[3, 7]
+		for (int py = kernel_radius + 1; py < height - kernel_radius; py++)
+		{
+			int pi_subtracted = (px + (py - kernel_radius - 1) * width) * 4;
+			neighbor_total_l -= neighbor_totals_copy[pi_subtracted + 0];
+			neighbor_total_a -= neighbor_totals_copy[pi_subtracted + 1];
+			neighbor_total_b -= neighbor_totals_copy[pi_subtracted + 2];
+
+			int pi_added = (px + (py + kernel_radius) * width) * 4;
+			neighbor_total_l += neighbor_totals_copy[pi_added + 0];
+			neighbor_total_a += neighbor_totals_copy[pi_added + 1];
+			neighbor_total_b += neighbor_totals_copy[pi_added + 2];
+
+			int pi = (px + py * width) * 4;
+			neighbor_totals[pi + 0] = neighbor_total_l;
+			neighbor_totals[pi + 1] = neighbor_total_a;
+			neighbor_totals[pi + 2] = neighbor_total_b;
+		}
+
+		// Give the rest of the bottom pixels their final neighbor total
+		// Given a height of 10 and kernel_radius of 2, this loops py=[8, 9]
+		for (int py = height - kernel_radius; py < height; py++)
+		{
+			int pi_subtracted = (px + (py - kernel_radius - 1) * width) * 4;
+			neighbor_total_l -= neighbor_totals_copy[pi_subtracted + 0];
+			neighbor_total_a -= neighbor_totals_copy[pi_subtracted + 1];
+			neighbor_total_b -= neighbor_totals_copy[pi_subtracted + 2];
+
+			int pi = (px + py * width) * 4;
+			neighbor_totals[pi + 0] = neighbor_total_l;
+			neighbor_totals[pi + 1] = neighbor_total_a;
+			neighbor_totals[pi + 2] = neighbor_total_b;
+		}
+	}
+}
+
+static void horizontal_pass(std::vector<uint64_t> &neighbor_totals, const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
+{
 	for (int py = 0; py < height; py++)
 	{
 		for (int px = 0; px < width; px++)
@@ -299,34 +359,28 @@ void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uin
 			}
 		}
 	}
+}
+
+// This is a convolution function; see this example, where kernel_radius is 1:
+// (x=0, y=0) aka 1 is the center, and the neighbor total is 1+2+4+5:
+// [1 2] 3
+// [4 5] 6
+// (x=1, y=0) aka 2 is the center, and the neighbor total is 1+2+3+4+5+6:
+// [1 2 3]
+// [4 5 6]
+// (x=2, y=0) aka 3 is the center, and the neighbor total is 2+3+5+6:
+// 1 [2 3]
+// 4 [5 6]
+static void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uint64_t> &neighbor_totals_copy, const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
+{
+	std::fill(neighbor_totals.begin(), neighbor_totals.end(), 0);
+
+	horizontal_pass(neighbor_totals, pixels, width, height, kernel_radius);
 
 	// TODO: Check using the assembly whether this isn't doing useless bounds/resize checks
 	neighbor_totals_copy = neighbor_totals;
 
-	// Vertical pass
-	for (int px = 0; px < width; px++)
-	{
-		for (int py = 0; py < height; py++)
-		{
-			int pi = (px + py * width) * 4;
-
-			int kdy_min = -std::min(py, kernel_radius);
-			int kdy_max = std::min(height - 1 - py, kernel_radius);
-
-			neighbor_totals[pi + 0] = 0;
-			neighbor_totals[pi + 1] = 0;
-			neighbor_totals[pi + 2] = 0;
-
-			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
-			{
-				int y = py + kdy;
-
-				neighbor_totals[pi + 0] += neighbor_totals_copy[(px + y * width) * 4 + 0];
-				neighbor_totals[pi + 1] += neighbor_totals_copy[(px + y * width) * 4 + 1];
-				neighbor_totals[pi + 2] += neighbor_totals_copy[(px + y * width) * 4 + 2];
-			}
-		}
-	}
+	vertical_pass(neighbor_totals, neighbor_totals_copy, width, height, kernel_radius);
 }
 
 static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<size_t> &normal_to_opaque_index_lut, int width, int height, int pair_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps, std::uniform_int_distribution<std::mt19937::result_type> &get_rand, std::mt19937 &rng)
