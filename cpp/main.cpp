@@ -427,8 +427,8 @@ static void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vec
 
 	horizontal_pass(neighbor_totals, pixels, width, height, kernel_radius);
 
+	// This is used in vertical_pass for subtracting old neighbor_totals that have shifted out of the kernel's radius
 	// TODO: Check using the assembly whether this isn't doing useless bounds/resize checks
-	// TODO: With the new vertical_pass, I think it should be possible to get rid of this copy entirely?
 	neighbor_totals_copy = neighbor_totals;
 
 	vertical_pass(neighbor_totals, neighbor_totals_copy, width, height, kernel_radius);
@@ -499,18 +499,18 @@ static std::string humanize_number(double n)
 	std::ostringstream ss;
 	ss << std::fixed << std::setprecision(1);
 
-	if (n < 1'000)
+	if (n > -1'000 && n < 1'000)
 	{
 		ss << n;
 		return ss.str();
 	}
-	else if (n < 1'000'000)
+	else if (n > -1'000'000 && n < 1'000'000)
 	{
 		double d = n / 1'000.0;
 		ss << d;
 		return ss.str() + " thousand";
 	}
-	else if (n < 1'000'000'000)
+	else if (n > -1'000'000'000 && n < 1'000'000'000)
 	{
 		double d = n / 1'000'000.0;
 		ss << d;
