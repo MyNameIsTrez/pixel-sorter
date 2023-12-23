@@ -309,18 +309,17 @@ void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uin
 			int kdy_min = -std::min(py, kernel_radius);
 			int kdy_max = std::min(height - 1 - py, kernel_radius);
 
+			neighbor_totals[(px + py * width) * 4 + 0] = 0;
+			neighbor_totals[(px + py * width) * 4 + 1] = 0;
+			neighbor_totals[(px + py * width) * 4 + 2] = 0;
+
 			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
 			{
-				// TODO: Profile whether it's faster to replace this if-statement
-				// with a subtraction of the original value at kdy==0 after this loop
-				if (kdy != 0)
-				{
-					int y = py + kdy;
+				int y = py + kdy;
 
-					neighbor_totals[(px + py * width) * 4 + 0] += neighbor_totals_copy[(px + y * width) * 4 + 0];
-					neighbor_totals[(px + py * width) * 4 + 1] += neighbor_totals_copy[(px + y * width) * 4 + 1];
-					neighbor_totals[(px + py * width) * 4 + 2] += neighbor_totals_copy[(px + y * width) * 4 + 2];
-				}
+				neighbor_totals[(px + py * width) * 4 + 0] += neighbor_totals_copy[(px + y * width) * 4 + 0];
+				neighbor_totals[(px + py * width) * 4 + 1] += neighbor_totals_copy[(px + y * width) * 4 + 1];
+				neighbor_totals[(px + py * width) * 4 + 2] += neighbor_totals_copy[(px + y * width) * 4 + 2];
 			}
 		}
 	}
@@ -452,7 +451,7 @@ static void print_status(int saved_results, std::chrono::steady_clock::time_poin
 	const auto now = std::chrono::steady_clock::now();
 	const double seconds = std::chrono::duration<double>(now - start_time).count();
 
-	double attempted_swaps_per_second = attempted_swaps / static_cast<double>(seconds);
+	double attempted_swaps_per_second = attempted_swaps / seconds;
 	double attempted_swaps_per_swap = attempted_swaps / static_cast<double>(swaps);
 
 	std::cout

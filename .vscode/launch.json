@@ -21,11 +21,11 @@
 				"output_npy/big_palette.npy",
 				"output_npy/big_palette.npy",
 				"--kernel-radius",
-				"100",
+				"200",
 				"--seconds-between-saves",
 				"60",
 				"--sort-minority-threshold",
-				"10",
+				"50",
 				"&>sort.log",
 			],
 			"setupCommands": [
