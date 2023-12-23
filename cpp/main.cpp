@@ -304,9 +304,9 @@ void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vector<uin
 	neighbor_totals_copy = neighbor_totals;
 
 	// Vertical pass
-	for (int py = 0; py < height; py++)
+	for (int px = 0; px < width; px++)
 	{
-		for (int px = 0; px < width; px++)
+		for (int py = 0; py < height; py++)
 		{
 			int pi = (px + py * width) * 4;
 
