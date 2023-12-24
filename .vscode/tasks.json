@@ -16,7 +16,6 @@
 				"-DNDEBUG",
 				"-Ofast",
 				"-march=native",
-				// "-fprofile-generate",
 				"-fprofile-use",
 				// "-Og",
 				// "-fsanitize=address,undefined",

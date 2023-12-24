@@ -577,7 +577,7 @@ static void print_status(int saved_results, std::chrono::steady_clock::time_poin
 		<< " (+" << humanize_number(attempted_swaps - prev_attempted_swaps) << ")"
 		<< ", " << humanize_number(attempted_swaps_per_second) << " attempted swaps/second"
 		<< " (+" << humanize_number(attempted_swaps_per_second - prev_attempted_swaps_per_second) << ")"
-		<< ", " << humanize_number(attempted_swaps_per_swap) << " attemped swaps/swap"
+		<< ", " << humanize_number(attempted_swaps_per_swap) << " attempted swaps/swap"
 		<< " (+" << humanize_number(attempted_swaps_per_swap - prev_attempted_swaps_per_swap) << ")"
 		<< std::endl;
 

@@ -104,6 +104,10 @@ sudo perf script > out.perf &&
 
 Open `kernel.svg` in your browser and click around.
 
+Manually regenerating the gcda files is necessary for some reason, rather than being able to launch the program with VS Code debugger.
+To do this you first need to recompile with `c++ -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -g -std=c++17 -DNDEBUG -Ofast -march=native -fprofile-generate cpp/main.cpp cpp/cnpy.cpp -lz`
+And then you need to run it for at least a few seconds with `./a.out output_npy/big_palette.npy output_npy/big_palette.npy --kernel-radius 200 --seconds-between-saves 60 --sort-minority-threshold 900`
+
 Generate an image with `python3 lab2rgb.py output_npy/big_palette.npy output/big_palette.png`
 
 You can view the generated assembly with Compiler Exampler [here](https://godbolt.org/z/Tjbrqn6b6).
