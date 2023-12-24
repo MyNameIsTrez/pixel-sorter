@@ -133,9 +133,8 @@ struct xy
 
 	xy operator+(const xy &other)
 	{
-		return {
-			x + other.x,
-			y + other.y};
+		return {x + other.x,
+				y + other.y};
 	}
 };
 
@@ -220,10 +219,9 @@ static double get_color_difference(lab pixel, lab neighbor_pixel)
 	double a_diff = pixel.a - neighbor_pixel.a;
 	double b_diff = pixel.b - neighbor_pixel.b;
 
-	return (
-		l_diff * l_diff +
-		a_diff * a_diff +
-		b_diff * b_diff);
+	return (l_diff * l_diff +
+			a_diff * a_diff +
+			b_diff * b_diff);
 }
 
 static lab get_neighbor_average(const std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, xy pos, int width)
@@ -237,10 +235,9 @@ static lab get_neighbor_average(const std::vector<uint64_t> &neighbor_totals, co
 	float c = neighbor_counts[get_index(pos, width)];
 
 	// TODO: Profile whether it's worth it to cache this division result in a new vector
-	return {
-		static_cast<uint16_t>(l / c),
-		static_cast<uint16_t>(a / c),
-		static_cast<uint16_t>(b / c)};
+	return {static_cast<uint16_t>(l / c),
+			static_cast<uint16_t>(a / c),
+			static_cast<uint16_t>(b / c)};
 }
 
 static bool should_swap(const std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, lab pixel1, lab pixel2, xy pos1, xy pos2, int width)

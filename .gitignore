@@ -3,4 +3,6 @@ input_npy/*.npy
 output/*.png
 output_npy/*.npy
 a.out
+cnpy.gcda
+main.gcda
 sort.log

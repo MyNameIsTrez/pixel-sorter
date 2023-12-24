@@ -25,7 +25,7 @@
 				"--seconds-between-saves",
 				"60",
 				"--sort-minority-threshold",
-				"999999",
+				"900",
 				"&>sort.log",
 			],
 			"setupCommands": [
