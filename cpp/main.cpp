@@ -358,6 +358,48 @@ static int get_shuffled_index(int i, int opaque_pixel_count, const Philox &p)
 	return shuffled;
 }
 
+#ifndef NDEBUG
+static std::vector<uint64_t> get_neighbor_totals_slow_reference(const std::vector<uint16_t> &pixels, int width, int height, int kernel_radius)
+{
+	std::vector<uint64_t> neighbor_totals(pixels.size(), 0);
+
+	// For every pixel
+	for (int py = 0; py < height; py++)
+	{
+		for (int px = 0; px < width; px++)
+		{
+			// TODO: By padding the input image it should be possible to get rid of these bounds variables
+			int kdy_min = -std::min(py, kernel_radius);
+			int kdy_max = std::min(height - 1 - py, kernel_radius);
+
+			int kdx_min = -std::min(px, kernel_radius);
+			int kdx_max = std::min(width - 1 - px, kernel_radius);
+
+			// TODO:: Replace this with a little one-line calculus
+			// Apply the kernel
+			for (int kdy = kdy_min; kdy <= kdy_max; kdy++)
+			{
+				for (int kdx = kdx_min; kdx <= kdx_max; kdx++)
+				{
+					int x = px + kdx;
+					int y = py + kdy;
+
+					uint16_t l = pixels[(x + y * width) * 4 + 0];
+					uint16_t a = pixels[(x + y * width) * 4 + 1];
+					uint16_t b = pixels[(x + y * width) * 4 + 2];
+
+					neighbor_totals[(px + py * width) * 4 + 0] += l;
+					neighbor_totals[(px + py * width) * 4 + 1] += a;
+					neighbor_totals[(px + py * width) * 4 + 2] += b;
+				}
+			}
+		}
+	}
+
+	return neighbor_totals;
+}
+#endif
+
 static void vertical_pass(std::vector<uint64_t> &neighbor_totals, std::vector<uint64_t> &neighbor_totals_copy, int width, int height, int kernel_radius)
 {
 	for (int px = 0; px < width; px++)
@@ -837,7 +879,11 @@ int main(int argc, char *argv[])
 	std::cout << "Calculating neighbor_totals" << std::endl;
 	std::vector<uint64_t> neighbor_totals(pixels.size());
 	std::vector<uint64_t> neighbor_totals_copy(neighbor_totals);
+
 	get_neighbor_totals(neighbor_totals, neighbor_totals_copy, pixels, width, height, kernel_radius);
+#ifndef NDEBUG
+	assert(neighbor_totals == get_neighbor_totals_slow_reference(pixels, width, height, kernel_radius));
+#endif
 
 	std::cout << "Calculating neighbor_counts" << std::endl;
 	const std::vector<float> neighbor_counts = get_neighbor_counts(kernel_radius, width, height);
@@ -894,6 +940,9 @@ int main(int argc, char *argv[])
 		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, opaque_pixel_count, swaps, attempted_swaps, p, transparent);
 
 		get_neighbor_totals(neighbor_totals, neighbor_totals_copy, pixels, width, height, kernel_radius);
+#ifndef NDEBUG
+		assert(neighbor_totals == get_neighbor_totals_slow_reference(pixels, width, height, kernel_radius));
+#endif
 
 		// TODO: Profile whether this casting is slow
 		if (attempted_swaps / static_cast<double>(swaps) > args.sort_minority_threshold)

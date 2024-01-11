@@ -19,7 +19,6 @@
 				// "-fprofile-use",
 				// "-Og",
 				// "-fsanitize=address,undefined",
-				// "-DDEBUG",
 				"cpp/main.cpp",
 				"cpp/cnpy.cpp",
 				"-lz",
