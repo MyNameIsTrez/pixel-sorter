@@ -629,7 +629,7 @@ static void try_save(std::chrono::steady_clock::time_point &last_saved_time, con
 			saved_results);
 
 		save_result(pixels, shape, output_npy_path);
-		saved_results += 1;
+		saved_results++;
 
 		last_saved_time = std::chrono::steady_clock::now();
 	}
@@ -665,7 +665,7 @@ static std::vector<int> get_normal_to_opaque_index_lut(const std::vector<uint16_
 			normal_to_opaque_index_lut.push_back(offset);
 		}
 
-		offset += 1;
+		offset++;
 	}
 
 	return normal_to_opaque_index_lut;
@@ -821,7 +821,7 @@ int main(int argc, char *argv[])
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
-	saved_results += 1;
+	saved_results++;
 
 	print_status(saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 
