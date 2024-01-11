@@ -271,31 +271,6 @@ static uint32_t mulhilo(uint64_t a, uint32_t b, uint32_t *hip)
 	return static_cast<uint32_t>(product);
 }
 
-// Source: https://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
-static uint32_t rand(uint32_t &rand1, uint32_t &rand2)
-{
-	// Unpack the state
-	uint32_t x = rand1;
-	uint32_t c = rand2;
-
-	// Calculate the result
-	uint32_t res = x ^ c;
-
-	// Step the RNG
-	// This is NOT the max uint32_t value of 4294967295U
-	constexpr uint32_t A = 4294883355U;
-	uint32_t hi = (x * A) >> 16;
-	x = x * A + c;
-	c = hi + (x < c);
-
-	// Pack the state back up
-	rand1 = x;
-	rand2 = c;
-
-	// Return the next result
-	return res;
-}
-
 static uint64_t get_cipher_bits(uint64_t capacity)
 {
 	if (capacity == 0)
@@ -322,7 +297,7 @@ struct Philox
 	uint64_t left_side_bits;
 	uint64_t right_side_mask;
 	uint64_t left_side_mask;
-	uint32_t key[num_rounds];
+	uint32_t key[num_philox_rounds];
 };
 
 static Philox get_philox(uint64_t capacity, std::mt19937_64 &random_function)
@@ -348,28 +323,28 @@ static Philox get_philox(uint64_t capacity, std::mt19937_64 &random_function)
 }
 
 // Source: https://github.com/djns99/CUDA-Shuffle/blob/master/include/shuffle/PhiloxShuffle.h
-static uint64_t philox_rand(uint64_t capacity, uint64_t val, uint32_t &rand1, uint32_t &rand2, uint32_t key[num_philox_rounds])
+static uint64_t philox_rand(uint64_t val, const Philox &p)
 {
 	constexpr uint64_t M0 = 0xD2B74407B1CE6E93;
 
 	uint32_t state[2] = {
-		static_cast<uint32_t>(val >> right_side_bits),
-		static_cast<uint32_t>(val & right_side_mask)};
+		static_cast<uint32_t>(val >> p.right_side_bits),
+		static_cast<uint32_t>(val & p.right_side_mask)};
 
 	for (int i = 0; i < num_philox_rounds; i++)
 	{
 		uint32_t hi;
 		uint32_t lo = mulhilo(M0, state[0], &hi);
-		lo = (lo << (right_side_bits - left_side_bits)) | state[1] >> left_side_bits;
-		state[0] = ((hi ^ key[i]) ^ state[1]) & left_side_mask;
-		state[1] = lo & right_side_mask;
+		lo = (lo << (p.right_side_bits - p.left_side_bits)) | state[1] >> p.left_side_bits;
+		state[0] = ((hi ^ p.key[i]) ^ state[1]) & p.left_side_mask;
+		state[1] = lo & p.right_side_mask;
 	}
 
 	// Combine the left and right sides together for the result
-	return static_cast<uint64_t>(state[0]) << right_side_bits | static_cast<uint64_t>(state[1]);
+	return static_cast<uint64_t>(state[0]) << p.right_side_bits | static_cast<uint64_t>(state[1]);
 }
 
-static int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_pixel_count, uint32_t key[num_philox_rounds])
+static int get_shuffled_index(int i, int opaque_pixel_count, const Philox &p)
 {
 	assert(i < opaque_pixel_count);
 
@@ -377,7 +352,7 @@ static int get_shuffled_index(int i, uint32_t rand1, uint32_t rand2, int opaque_
 
 	do
 	{
-		shuffled = philox_rand(opaque_pixel_count, shuffled, rand1, rand2, key);
+		shuffled = philox_rand(shuffled, p);
 	} while (shuffled >= opaque_pixel_count);
 
 	return shuffled;
@@ -552,15 +527,15 @@ static void get_neighbor_totals(std::vector<uint64_t> &neighbor_totals, std::vec
 	vertical_pass(neighbor_totals, neighbor_totals_copy, width, height, kernel_radius);
 }
 
-static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<int> &normal_to_opaque_index_lut, int width, int height, uint32_t rand1, uint32_t rand2, int opaque_pixel_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps, uint32_t key[num_philox_rounds], bool transparent)
+static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<int> &normal_to_opaque_index_lut, int width, int height, int opaque_pixel_count, int kernel_radius, uint64_t &swaps, uint64_t &attempted_swaps, const Philox &p, bool transparent)
 {
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i1 = 0; i1 < opaque_pixel_count; i1 += 2)
 	{
 		int i2 = i1 + 1;
 
-		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count, key);
-		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2, opaque_pixel_count, key);
+		int shuffled_i1 = get_shuffled_index(i1, opaque_pixel_count, p);
+		int shuffled_i2 = get_shuffled_index(i2, opaque_pixel_count, p);
 
 		if (transparent)
 		{
@@ -589,15 +564,15 @@ static void sort_minority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &
 	}
 }
 
-static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<int> &normal_to_opaque_index_lut, int width, uint32_t rand1, uint32_t rand2, int opaque_pixel_count, uint64_t &swaps, uint64_t &attempted_swaps, uint32_t key[num_philox_rounds], bool transparent)
+static void sort_majority(std::vector<uint16_t> &pixels, std::vector<uint64_t> &neighbor_totals, const std::vector<float> &neighbor_counts, const std::vector<int> &normal_to_opaque_index_lut, int width, int opaque_pixel_count, uint64_t &swaps, uint64_t &attempted_swaps, const Philox &p, bool transparent)
 {
 	// TODO: Use a C++ parallel-loop here, to get it closer to sort.cl
 	for (int i1 = 0; i1 < opaque_pixel_count; i1 += 2)
 	{
 		int i2 = i1 + 1;
 
-		int shuffled_i1 = get_shuffled_index(i1, rand1, rand2, opaque_pixel_count, key);
-		int shuffled_i2 = get_shuffled_index(i2, rand1, rand2, opaque_pixel_count, key);
+		int shuffled_i1 = get_shuffled_index(i1, opaque_pixel_count, p);
+		int shuffled_i2 = get_shuffled_index(i2, opaque_pixel_count, p);
 
 		if (transparent)
 		{
@@ -857,7 +832,6 @@ int main(int argc, char *argv[])
 
 	int pixels_size = pixels.size();
 	int opaque_pixel_count = get_opaque_pixel_count(pixels, pixels_size);
-	int pair_count = opaque_pixel_count / 2;
 	bool transparent = pixels_size / 4 != opaque_pixel_count;
 
 	std::cout << "Calculating neighbor_totals" << std::endl;
@@ -867,9 +841,6 @@ int main(int argc, char *argv[])
 
 	std::cout << "Calculating neighbor_counts" << std::endl;
 	const std::vector<float> neighbor_counts = get_neighbor_counts(kernel_radius, width, height);
-
-	uint32_t rand1 = ? ;
-	uint32_t rand2 = ? ;
 
 	uint64_t swaps = 0;
 	uint64_t prev_swaps = 0;
@@ -904,7 +875,7 @@ int main(int argc, char *argv[])
 	std::cout << "Using philox random_function seed " << seed << std::endl;
 	// TODO: Profile whether a faster RNG function should be used
 	std::mt19937_64 random_function(seed);
-	Philox philox = get_philox(width * height, random_function);
+	Philox p = get_philox(width * height, random_function);
 
 	std::cout << "\nRunning sort_majority()" << std::endl;
 
@@ -920,10 +891,7 @@ int main(int argc, char *argv[])
 		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
-		// Using unsigned wraparound
-		rand1++;
-
-		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, rand1, rand2, opaque_pixel_count, swaps, attempted_swaps, key, transparent);
+		sort_majority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, opaque_pixel_count, swaps, attempted_swaps, p, transparent);
 
 		get_neighbor_totals(neighbor_totals, neighbor_totals_copy, pixels, width, height, kernel_radius);
 
@@ -946,10 +914,7 @@ int main(int argc, char *argv[])
 		try_print(last_printed_time, args.seconds_between_prints, saved_results, prev_now, loops, swaps, prev_swaps, attempted_swaps, prev_attempted_swaps, prev_attempted_swaps_per_second, prev_attempted_swaps_per_swap, start_time);
 		try_save(last_saved_time, args, saved_results, pixels, arr.shape);
 
-		// Using unsigned wraparound
-		rand1++;
-
-		sort_minority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, rand1, rand2, opaque_pixel_count, kernel_radius, swaps, attempted_swaps, key, transparent);
+		sort_minority(pixels, neighbor_totals, neighbor_counts, normal_to_opaque_index_lut, width, height, opaque_pixel_count, kernel_radius, swaps, attempted_swaps, p, transparent);
 	}
 
 	save_result(pixels, arr.shape, output_npy_path);
