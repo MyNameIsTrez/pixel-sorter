@@ -308,68 +308,93 @@ static void vertical_pass(std::vector<uint64_t> &neighbor_totals, std::vector<ui
 {
 	for (int px = 0; px < width; px++)
 	{
+		int pxi = px * 4;
+
 		uint64_t neighbor_total_l = 0;
 		uint64_t neighbor_total_a = 0;
 		uint64_t neighbor_total_b = 0;
 
 		// Give the topmost pixel its final neighbor total
-		for (int kdy = 0; kdy <= kernel_radius; kdy++)
+		for (int kdy = 0; kdy <= std::min(kernel_radius, height - 1); kdy++)
 		{
-			int pi = (px + kdy * width) * 4;
+			assert(kdy < height);
+
+			int pi = pxi + kdy * width * 4;
 
 			neighbor_total_l += neighbor_totals_copy[pi + 0];
 			neighbor_total_a += neighbor_totals_copy[pi + 1];
 			neighbor_total_b += neighbor_totals_copy[pi + 2];
 		}
-		neighbor_totals[px * 4 + 0] = neighbor_total_l;
-		neighbor_totals[px * 4 + 1] = neighbor_total_a;
-		neighbor_totals[px * 4 + 2] = neighbor_total_b;
+		neighbor_totals[pxi + 0] = neighbor_total_l;
+		neighbor_totals[pxi + 1] = neighbor_total_a;
+		neighbor_totals[pxi + 2] = neighbor_total_b;
 
 		// Give the rest of the top edge pixels their final neighbor total
-		// Given a height of 10 and kernel_radius of 2, this loops py=[1, 2]
-		for (int py = 1; py <= kernel_radius; py++)
+		for (int py = 1 + kernel_radius; py <= std::min(kernel_radius * 2, height - 1); py++)
 		{
-			int pi_added = (px + (py + kernel_radius) * width) * 4;
+			assert(py < height);
+
+			int pi_added = pxi + py * width * 4;
 			neighbor_total_l += neighbor_totals_copy[pi_added + 0];
 			neighbor_total_a += neighbor_totals_copy[pi_added + 1];
 			neighbor_total_b += neighbor_totals_copy[pi_added + 2];
 
-			int pi = (px + py * width) * 4;
+			int pi = pxi + (py - kernel_radius) * width * 4;
 			neighbor_totals[pi + 0] = neighbor_total_l;
 			neighbor_totals[pi + 1] = neighbor_total_a;
 			neighbor_totals[pi + 2] = neighbor_total_b;
 		}
 
-		// Give the center pixels (they are the majority) their final neighbor total
-		// Given a height of 10 and kernel_radius of 2, this loops py=[3, 7]
-		for (int py = kernel_radius + 1; py < height - kernel_radius; py++)
+		if (kernel_radius + 1 < height - kernel_radius)
 		{
-			int pi_subtracted = (px + (py - kernel_radius - 1) * width) * 4;
-			neighbor_total_l -= neighbor_totals_copy[pi_subtracted + 0];
-			neighbor_total_a -= neighbor_totals_copy[pi_subtracted + 1];
-			neighbor_total_b -= neighbor_totals_copy[pi_subtracted + 2];
+			// Give the center pixels (they are the majority) their final neighbor total
+			for (int py = kernel_radius + 1; py < height - kernel_radius; py++)
+			{
+				assert(py < height);
 
-			int pi_added = (px + (py + kernel_radius) * width) * 4;
-			neighbor_total_l += neighbor_totals_copy[pi_added + 0];
-			neighbor_total_a += neighbor_totals_copy[pi_added + 1];
-			neighbor_total_b += neighbor_totals_copy[pi_added + 2];
+				int pi_subtracted = pxi + (py - kernel_radius - 1) * width * 4;
+				neighbor_total_l -= neighbor_totals_copy[pi_subtracted + 0];
+				neighbor_total_a -= neighbor_totals_copy[pi_subtracted + 1];
+				neighbor_total_b -= neighbor_totals_copy[pi_subtracted + 2];
 
-			int pi = (px + py * width) * 4;
-			neighbor_totals[pi + 0] = neighbor_total_l;
-			neighbor_totals[pi + 1] = neighbor_total_a;
-			neighbor_totals[pi + 2] = neighbor_total_b;
+				int pi_added = pxi + (py + kernel_radius) * width * 4;
+				neighbor_total_l += neighbor_totals_copy[pi_added + 0];
+				neighbor_total_a += neighbor_totals_copy[pi_added + 1];
+				neighbor_total_b += neighbor_totals_copy[pi_added + 2];
+
+				int pi = pxi + py * width * 4;
+				neighbor_totals[pi + 0] = neighbor_total_l;
+				neighbor_totals[pi + 1] = neighbor_total_a;
+				neighbor_totals[pi + 2] = neighbor_total_b;
+			}
+		}
+		else
+		{
+			// Give the center pixels the earlier neighbor total, if the kernel_radius is huge
+			for (int py = std::max(height - kernel_radius, 1); py <= std::min(kernel_radius, height - 1); py++)
+			{
+				assert(py >= 0);
+				assert(py < height);
+
+				int pi = pxi + py * width * 4;
+				neighbor_totals[pi + 0] = neighbor_total_l;
+				neighbor_totals[pi + 1] = neighbor_total_a;
+				neighbor_totals[pi + 2] = neighbor_total_b;
+			}
 		}
 
 		// Give the rest of the bottom edge pixels their final neighbor total
-		// Given a height of 10 and kernel_radius of 2, this loops py=[8, 9]
-		for (int py = height - kernel_radius; py < height; py++)
+		for (int py = std::max(height - kernel_radius, kernel_radius + 1); py < height; py++)
 		{
-			int pi_subtracted = (px + (py - kernel_radius - 1) * width) * 4;
+			assert(py >= 0);
+			assert(py < height);
+
+			int pi_subtracted = pxi + (py - kernel_radius - 1) * width * 4;
 			neighbor_total_l -= neighbor_totals_copy[pi_subtracted + 0];
 			neighbor_total_a -= neighbor_totals_copy[pi_subtracted + 1];
 			neighbor_total_b -= neighbor_totals_copy[pi_subtracted + 2];
 
-			int pi = (px + py * width) * 4;
+			int pi = pxi + py * width * 4;
 			neighbor_totals[pi + 0] = neighbor_total_l;
 			neighbor_totals[pi + 1] = neighbor_total_a;
 			neighbor_totals[pi + 2] = neighbor_total_b;
@@ -381,68 +406,122 @@ static void horizontal_pass(std::vector<uint64_t> &neighbor_totals, const std::v
 {
 	for (int py = 0; py < height; py++)
 	{
+		int pyi = py * width * 4;
+
 		uint64_t neighbor_total_l = 0;
 		uint64_t neighbor_total_a = 0;
 		uint64_t neighbor_total_b = 0;
 
 		// Give the leftmost pixel its final neighbor total
-		for (int kdx = 0; kdx <= kernel_radius; kdx++)
+		// Given a width of 10 and kernel_radius of 2, this adds [0, 2] and writes [0]
+		// Given a width of 10 and kernel_radius of 5, this adds [0, 5] and writes [0]
+		// Given a width of 10 and kernel_radius of 6, this adds [0, 6] and writes [0]
+		// Given a width of 10 and kernel_radius of 7, this adds [0, 7] and writes [0]
+		// Given a width of 10 and kernel_radius of 8, this adds [0, 8] and writes [0]
+		// Given a width of 10 and kernel_radius of 9, this adds [0, 9] and writes [0]
+		// Given a width of 10 and kernel_radius of 10, this adds [0, 9] and writes [0]
+		for (int kdx = 0; kdx <= std::min(kernel_radius, width - 1); kdx++)
 		{
-			int pi = (kdx + py * width) * 4;
+			assert(kdx < width);
+
+			int pi = kdx * 4 + pyi;
 
 			neighbor_total_l += pixels[pi + 0];
 			neighbor_total_a += pixels[pi + 1];
 			neighbor_total_b += pixels[pi + 2];
 		}
-		neighbor_totals[py * width * 4 + 0] = neighbor_total_l;
-		neighbor_totals[py * width * 4 + 1] = neighbor_total_a;
-		neighbor_totals[py * width * 4 + 2] = neighbor_total_b;
+		neighbor_totals[pyi + 0] = neighbor_total_l;
+		neighbor_totals[pyi + 1] = neighbor_total_a;
+		neighbor_totals[pyi + 2] = neighbor_total_b;
 
 		// Give the rest of the left edge pixels their final neighbor total
-		// Given a width of 10 and kernel_radius of 2, this loops px=[1, 2]
-		for (int px = 1; px <= kernel_radius; px++)
+		// Given a width of 10 and kernel_radius of 2, this adds [3, 4] and writes [1, 2]
+		// Given a width of 10 and kernel_radius of 5, this adds [6, 9] and writes [1, 4]
+		// Given a width of 10 and kernel_radius of 6, this adds [7, 9] and writes [1, 3]
+		// Given a width of 10 and kernel_radius of 7, this adds [8, 9] and writes [1, 2]
+		// Given a width of 10 and kernel_radius of 8, this adds [9] and writes [1]
+		// Given a width of 10 and kernel_radius of 9, this does nothing
+		for (int px = 1 + kernel_radius; px <= std::min(kernel_radius * 2, width - 1); px++)
 		{
-			int pi_added = (px + kernel_radius + py * width) * 4;
+			assert(px < width);
+
+			int pi_added = px * 4 + pyi;
 			neighbor_total_l += pixels[pi_added + 0];
 			neighbor_total_a += pixels[pi_added + 1];
 			neighbor_total_b += pixels[pi_added + 2];
 
-			int pi = (px + py * width) * 4;
+			int pi = (px - kernel_radius) * 4 + pyi;
 			neighbor_totals[pi + 0] = neighbor_total_l;
 			neighbor_totals[pi + 1] = neighbor_total_a;
 			neighbor_totals[pi + 2] = neighbor_total_b;
 		}
 
-		// Give the center pixels (they are the majority) their final neighbor total
-		// Given a width of 10 and kernel_radius of 2, this loops px=[3, 7]
-		for (int px = kernel_radius + 1; px < width - kernel_radius; px++)
+		if (kernel_radius + 1 < width - kernel_radius)
 		{
-			int pi_subtracted = (px - kernel_radius - 1 + py * width) * 4;
-			neighbor_total_l -= pixels[pi_subtracted + 0];
-			neighbor_total_a -= pixels[pi_subtracted + 1];
-			neighbor_total_b -= pixels[pi_subtracted + 2];
+			// Give the center pixels (they are the majority) their final neighbor total
+			// Given a width of 10 and kernel_radius of 2, this subtracts [0, 4] and adds [5, 9] and writes [3, 7]
+			// Given a width of 10 and kernel_radius of 3, this subtracts [0, 2] and adds [7, 9] and writes [4, 6]
+			// Given a width of 10 and kernel_radius of 4, this subtracts [0] and adds [9] and writes [5]
+			// Given a width of 10 and kernel_radius of 5, this does nothing
+			for (int px = kernel_radius + 1; px < width - kernel_radius; px++)
+			{
+				assert(px < width);
 
-			int pi_added = (px + kernel_radius + py * width) * 4;
-			neighbor_total_l += pixels[pi_added + 0];
-			neighbor_total_a += pixels[pi_added + 1];
-			neighbor_total_b += pixels[pi_added + 2];
+				int pi_subtracted = (px - kernel_radius - 1) * 4 + pyi;
+				neighbor_total_l -= pixels[pi_subtracted + 0];
+				neighbor_total_a -= pixels[pi_subtracted + 1];
+				neighbor_total_b -= pixels[pi_subtracted + 2];
 
-			int pi = (px + py * width) * 4;
-			neighbor_totals[pi + 0] = neighbor_total_l;
-			neighbor_totals[pi + 1] = neighbor_total_a;
-			neighbor_totals[pi + 2] = neighbor_total_b;
+				int pi_added = (px + kernel_radius) * 4 + pyi;
+				neighbor_total_l += pixels[pi_added + 0];
+				neighbor_total_a += pixels[pi_added + 1];
+				neighbor_total_b += pixels[pi_added + 2];
+
+				int pi = px * 4 + pyi;
+				neighbor_totals[pi + 0] = neighbor_total_l;
+				neighbor_totals[pi + 1] = neighbor_total_a;
+				neighbor_totals[pi + 2] = neighbor_total_b;
+			}
+		}
+		else
+		{
+			// Give the center pixels the earlier neighbor total, if the kernel_radius is huge
+			// Given a width of 10 and kernel_radius of 5, this writes [5]
+			// Given a width of 10 and kernel_radius of 6, this writes [4, 6]
+			// Given a width of 10 and kernel_radius of 7, this writes [3, 7]
+			// Given a width of 10 and kernel_radius of 8, this writes [2, 8]
+			// Given a width of 10 and kernel_radius of 9, this writes [1, 9]
+			// Given a width of 10 and kernel_radius of 10, this writes [1, 9]
+			for (int px = std::max(width - kernel_radius, 1); px <= std::min(kernel_radius, width - 1); px++)
+			{
+				assert(px >= 0);
+				assert(px < width);
+
+				int pi = px * 4 + pyi;
+				neighbor_totals[pi + 0] = neighbor_total_l;
+				neighbor_totals[pi + 1] = neighbor_total_a;
+				neighbor_totals[pi + 2] = neighbor_total_b;
+			}
 		}
 
 		// Give the rest of the right edge pixels their final neighbor total
-		// Given a width of 10 and kernel_radius of 2, this loops px=[8, 9]
-		for (int px = width - kernel_radius; px < width; px++)
+		// Given a width of 10 and kernel_radius of 2, this subtracts [5, 6] and writes [8, 9]
+		// Given a width of 10 and kernel_radius of 5, this subtracts [0, 3] and writes [6, 9]
+		// Given a width of 10 and kernel_radius of 6, this subtracts [0, 2] and writes [7, 9]
+		// Given a width of 10 and kernel_radius of 7, this subtracts [0, 1] and writes [8, 9]
+		// Given a width of 10 and kernel_radius of 8, this subtracts [0] and writes [9]
+		// Given a width of 10 and kernel_radius of 9, this does nothing
+		for (int px = std::max(width - kernel_radius, kernel_radius + 1); px < width; px++)
 		{
-			int pi_subtracted = (px - kernel_radius - 1 + py * width) * 4;
+			assert(px >= 0);
+			assert(px < width);
+
+			int pi_subtracted = (px - kernel_radius - 1) * 4 + pyi;
 			neighbor_total_l -= pixels[pi_subtracted + 0];
 			neighbor_total_a -= pixels[pi_subtracted + 1];
 			neighbor_total_b -= pixels[pi_subtracted + 2];
 
-			int pi = (px + py * width) * 4;
+			int pi = px * 4 + pyi;
 			neighbor_totals[pi + 0] = neighbor_total_l;
 			neighbor_totals[pi + 1] = neighbor_total_a;
 			neighbor_totals[pi + 2] = neighbor_total_b;
@@ -769,6 +848,7 @@ int main(int argc, char *argv[])
 	int width = arr.shape[1];
 
 	int kernel_radius = args.kernel_radius;
+	// Clamp the kernel radius so it isn't uselessly larger than the width and height
 	int max_kernel_radius = std::max(width, height) - 1;
 	kernel_radius = std::min(kernel_radius, max_kernel_radius);
 
