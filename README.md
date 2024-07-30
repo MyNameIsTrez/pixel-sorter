@@ -110,6 +110,6 @@ And then you need to run it for at least a few seconds with `./a.out output_npy/
 
 Generate an image with `python3 lab2rgb.py output_npy/big_palette.npy output/big_palette.png`
 
-You can view the generated assembly with Compiler Exampler [here](https://godbolt.org/z/Tjbrqn6b6).
+You can view the generated assembly with Compiler Explorer [here](https://godbolt.org/z/Tjbrqn6b6).
 
 `perf top -a` is an excellent sampler for finding assembly instructions that take the biggest percentage of the program's time, and it even shows the original lines alongside the assembly!
