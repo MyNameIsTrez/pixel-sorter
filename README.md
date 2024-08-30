@@ -95,7 +95,7 @@ mp4 files are larger and of lower quality than webm files, but are more widely s
 
 Clone [FlameGraph](https://github.com/brendangregg/FlameGraph), open a terminal in that directory, and run these commands:
 
-```
+```bash
 sudo perf record -F 99 -p $(pgrep a.out) -g -- sleep 10 &&
 sudo perf script > out.perf &&
 ./stackcollapse-perf.pl out.perf > out.folded &&
