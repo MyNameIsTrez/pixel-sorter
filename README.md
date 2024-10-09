@@ -39,26 +39,40 @@ To show that RGB doesn't reflect how the human eye perceives color, here's the s
 
 https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-ad10-cd145d844d64
 
-## Usage
+## Installation
 
 The program will let you know if you don't have OpenCL installed yet:
 
-1. Clone this repository
-2. `cd` into it
-3. Install requirements with `pip install -r requirements.txt`
-4. Run `python sort.py -h` to see how the program is used
+1. Clone this repository and `cd` into it
+2. Install the requirements by running `pip install -r requirements.txt`
+3. See all the options by running `python sort.py --help`
 
-While the program is running you can check the output image, since it's repeatedly overwritten. Once you're satisfied with the result, press Ctrl+C to stop the program.
+## Usage
+
+1. Generate `heart_rgb2lab.npy` by running `python rgb2lab.py input/heart.png input_npy/heart_rgb2lab.npy`
+2. Start sorting by running `python sort.py input_npy/heart_rgb2lab.npy output_npy/heart_rgb2lab.npy`
+
+To track the sorting progress, you can open another terminal and run `python lab2rgb.py output_npy/heart_rgb2lab.npy output/heart_lab2rgb.png`, which outputs `output/heart_lab2rgb.png`.
+
+Once you're satisfied with the result, you can stop the sorting by pressing Ctrl+C.
 
 ## Other included programs
-
-If you open this repository in VS Code, you can launch and configure these programs using the `.vscode/launch.json` file.
 
 ### verify.py
 
 Verifies that the color counts of the input and output image are identical.
 
 If the color counts aren't identical and you started the program with VS Code's Python debugger, the VS Code `Run and Debug` view on the left allows you to inspect the colors and counts of the input and output image.
+
+`rgb2lab.py` converts an RGB image to LAB values, and writes it to a numpy `.npy` binary file. `lab2rgb.py` converts that back to an RGB image. `sort.cpp` takes this `.npy` file as an input, and outputs another `.npy` file. This frees `sort.py` from needing color conversion code.
+
+Example usage:
+
+1. `python rgb2lab.py input/heart.png output/heart_rgb2lab.npy`
+2. `python lab2rgb.py output/heart_rgb2lab.npy output/heart_lab2rgb.png`
+3. `python verify.py input/heart.png output/heart_lab2rgb.png`
+
+If you open this repository in VS Code, you can launch and configure these programs using the `.vscode/launch.json` file.
 
 ### fill_mask.py
 
@@ -69,18 +83,6 @@ The heart shape was created using this program, from `input/heart.png` and the h
 ### shuffle.py
 
 Shuffles the opaque pixels of an input image, and writes the result to an output image.
-
-### rgb2lab.py and lab2rgb.py
-
-You'd think doing `magick input/heart.png -colorspace Lab output/heart_magick.tif`, then `magick output/heart_magick.tif output/heart_magick.png`, and finally `python verify.py input/heart.png output/heart_magick.png` would work. It doesn't however, which is because the `.tif` file stores the Lab values as integers, rather than floats.
-
-So `rgb2lab.py` converts an RGB image to Lab floating-point values and writes it to a numpy `.npy` binary file, and `lab2rgb.py` unpacks that back to an RGB image. The purpose of this binary file is that the C++ implementation `sort.cpp`, and any other implementation in any other language, doesn't need to go through the hassle of including and calling an LAB library.
-
-Example usage:
-
-1. `python rgb2lab.py input/heart.png output/heart_rgb2lab.npy`
-2. `python lab2rgb.py output/heart_rgb2lab.npy output/heart_lab2rgb.png`
-3. `python verify.py input/heart.png output/heart_lab2rgb.png`
 
 ## How to turn the output images into videos
 
