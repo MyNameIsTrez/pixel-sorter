@@ -41,8 +41,6 @@ https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-
 
 ## Installation
 
-The program will let you know if you don't have OpenCL installed yet:
-
 1. Clone this repository and `cd` into it
 2. Install the requirements by running `pip install -r requirements.txt`
 3. See all the options by running `python sort.py --help`
@@ -50,7 +48,7 @@ The program will let you know if you don't have OpenCL installed yet:
 ## Usage
 
 1. Generate `heart_rgb2lab.npy` by running `python rgb2lab.py input/heart.png input_npy/heart_rgb2lab.npy`
-2. Start sorting by running `python sort.py input_npy/heart_rgb2lab.npy output_npy/heart_rgb2lab.npy`
+2. Start sorting by running `python sort.py input_npy/heart_rgb2lab.npy output_npy/heart_rgb2lab.npy` (if the program prints `pyopencl._cl.LogicError: clGetPlatformIDs failed: PLATFORM_NOT_FOUND_KHR`, it means you need to install OpenCL)
 
 To track the sorting progress, you can open another terminal and run `python lab2rgb.py output_npy/heart_rgb2lab.npy output/heart_lab2rgb.png`, which outputs `output/heart_lab2rgb.png`.
 
