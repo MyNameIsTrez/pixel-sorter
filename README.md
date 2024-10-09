@@ -3,6 +3,7 @@
 Sorts the pixels of an image based on their color.
 
 Before vs after:
+
 <p>
 	<img src="media/palette_input.png" alt="This input palette isn't very sorted by color.">
 	<img src="media/palette_output.png" alt="This output palette is pretty much optimally sorted by color.">
@@ -16,34 +17,38 @@ Here's the `before` palette pasted 64 times and sorted:
 
 <img src="media/palette_output_large.png" alt="This large output palette is color sorted.">
 
-It essentially blurs an image, while retaining all of the original pixels:
+Sorting an image blurs it, but the difference with normal blurring is that all of the original pixels are still there; the pixels have just been swapped around. In the below image the left half is untouched, and the right half is the blurry result after sorting:
 
 <p><img src="media/blurry_elephant.png" alt="Half is the input toy elephant and the other half is the blurry output toy elephant."></p>
 
 ## How it works
 
-It repeatedly attempts to swap two random pixels, only doing the swap if that'd place them next to pixels with more similar colors.
+The program repeatedly attempts to swap two random pixels, only performing the swap if that'd place them next to pixels with more similar colors.
 
 At the heart of the program lies my PyOpenCL port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `LCGBijectiveFunction` shuffling class.
 
-Pixels are first converted from RGB to the CIELAB color space, in order to make later pixel color comparisons more accurate to how the human eye works. See [this Wikipedia article](https://en.wikipedia.org/wiki/Color_difference) on color difference:
+Before sorting, `rgb2lab.py` is used to convert the pixels of the input image from RGB to CIELAB colors. CIELAB colors were designed based on empirical studies of how the human eye perceives color, and it allows us to do significantly more accurate color comparisons than can be done with RGB.
+
+The [Color difference](https://en.wikipedia.org/wiki/Color_difference) article on Wikipedia describes how uniform color spaces like CIELAB allow getting an accurate color difference score with the formula `(R1 - R2)^2 + (G1 - G2)^2 + (B1 - B2)^2`, where `R1` is the red value of the 1st pixel:
 
 > Uniform color space: a color space in which equivalent numerical differences represent equivalent visual differences, regardless of location within the color space.
 
-Here's the same heart video from before, but with color comparisons done in RGB. The ugly green splotches everywhere are most noticeable:
+`lab2rgb.py` is used at the end of the program to convert the sorted CIELAB pixels back to RGB pixels. This is a completely lossless process.
+
+To show that RGB doesn't reflect how the human eye perceives color, here's the same heart video from before, but with color comparisons done in RGB. Notice the green splotches that look out of place:
 
 https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-ad10-cd145d844d64
 
 ## Usage
 
-You need to install OpenCL if you don't have it already, but this program should let you know if you don't have it installed yet, so follow these steps regardless:
+The program will let you know if you don't have OpenCL installed yet:
 
-1. Clone this repository.
-2. `cd` into it.
+1. Clone this repository
+2. `cd` into it
 3. Install requirements with `pip install -r requirements.txt`
-4. Run `python sort.py -h` to see how the program is used.
+4. Run `python sort.py -h` to see how the program is used
 
-Press Ctrl+C once to stop the program. Look at the output image while it's running to decide whether you are satisfied with how sorted the result is.
+While the program is running you can check the output image, since it's repeatedly overwritten. Once you're satisfied with the result, press Ctrl+C to stop the program.
 
 ## Other included programs
 
@@ -72,6 +77,7 @@ You'd think doing `magick input/heart.png -colorspace Lab output/heart_magick.ti
 So `rgb2lab.py` converts an RGB image to Lab floating-point values and writes it to a numpy `.npy` binary file, and `lab2rgb.py` unpacks that back to an RGB image. The purpose of this binary file is that the C++ implementation `sort.cpp`, and any other implementation in any other language, doesn't need to go through the hassle of including and calling an LAB library.
 
 Example usage:
+
 1. `python rgb2lab.py input/heart.png output/heart_rgb2lab.npy`
 2. `python lab2rgb.py output/heart_rgb2lab.npy output/heart_lab2rgb.png`
 3. `python verify.py input/heart.png output/heart_lab2rgb.png`
@@ -79,6 +85,7 @@ Example usage:
 ## How to turn the output images into videos
 
 ### webm
+
 `ffmpeg -framerate 1 -i output/elephant_%04d.png -crf 0 -s 1024x662 -sws_flags neighbor -r 30 output/output.webm`
 
 ### mp4
