@@ -43,7 +43,7 @@ def verify(input_lab_npy_path, output_rgb_image_path):
     print("Saving output RGB image")
     Image.fromarray(pixels).save(output_rgb_image_path)
 
-    print("Done!")
+    print("Done! 🎉")
 
 
 def add_parser_arguments(parser):

@@ -34,6 +34,8 @@ def shuffle(input_image_path, output_image_path):
     output_img = Image.fromarray(output_arr)
     output_img.save(output_image_path)
 
+    print("Done! 🎉")
+
 
 def add_parser_arguments(parser):
     parser.add_argument(

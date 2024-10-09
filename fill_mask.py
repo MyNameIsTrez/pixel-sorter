@@ -51,6 +51,8 @@ def fill_mask(input_image_path, input_mask_image_path, output_filled_mask_image_
     output_img = Image.fromarray(output_arr)
     output_img.save(output_filled_mask_image_path)
 
+    print("Done! 🎉")
+
 
 def add_parser_arguments(parser):
     parser.add_argument(

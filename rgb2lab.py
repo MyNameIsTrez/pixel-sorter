@@ -32,7 +32,7 @@ def verify(input_rgb_image_path, output_lab_npy_path):
     print("*= precision_compensation")
     pixels[:, :, :3] *= precision_compensation
 
-    print("Rounding to uint32")
+    print("Rounding to uint16")
     pixels = np.round(pixels).astype(np.uint16)
 
     print("Setting LAB values to 0 that have an alpha of 0")
@@ -41,7 +41,7 @@ def verify(input_rgb_image_path, output_lab_npy_path):
     print("Saving output LAB image")
     np.save(output_lab_npy_path, pixels)
 
-    print("Done!")
+    print("Done! 🎉")
 
 
 def add_parser_arguments(parser):
