@@ -194,7 +194,7 @@ def main():
     args = parser.parse_args()
 
     print("Initializing OpenCL...")
-    os.environ["PYOPENCL_CTX"] = "0"
+    # os.environ["PYOPENCL_CTX"] = "0" # Use this to automatically pick the 1st available driver
     os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
     ctx = cl.create_some_context()
     queue = cl.CommandQueue(ctx)

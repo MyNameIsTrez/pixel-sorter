@@ -15,7 +15,7 @@ typedef uint u32;
 typedef ulong u64;
 
 void set_pixel(
-	write_only image2d_t pixels,
+	read_write image2d_t pixels,
 	int2 pos,
 	float4 pixel
 ) {
@@ -23,7 +23,7 @@ void set_pixel(
 }
 
 void mark_neighbors_as_updated(
-	read_only image2d_t updated,
+	read_write image2d_t updated,
 	int2 center
 ) {
 	// TODO: By padding the input image, it should be possible to get rid of these bounds variables
@@ -64,24 +64,17 @@ float get_squared_color_difference(
 }
 
 float4 get_pixel(
-	read_only image2d_t pixels,
+	read_write image2d_t pixels,
 	int2 pos
 ) {
-	// CLK_NORMALIZED_COORDS_FALSE means the x and y coordinates won't be normalized to between 0 and 1
-	// CLK_ADDRESS_CLAMP_TO_EDGE means the x and y coordinates are clamped to be within the image's size
-	// CLK_FILTER_NEAREST means not having any pixel neighbor interpolation occur
-	// Sources:
-	// https://man.opencl.org/sampler_t.html
-	// https://registry.khronos.org/OpenCL/specs/opencl-1.1.pdf
-	sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-
-	return read_imagef(pixels, sampler, pos);
+	// Samplerless: https://registry.khronos.org/OpenCL/sdk/3.0/docs/man/html/imageSamplerlessReadFunctions.html
+	return read_imagef(pixels, pos);
 }
 
 void update_neighbor_total(
-	read_only image2d_t pixels,
-	write_only image2d_t neighbor_totals,
-	read_only image2d_t kernel_,
+	read_write image2d_t pixels,
+	read_write image2d_t neighbor_totals,
+	read_write image2d_t kernel_,
 	int2 center
 ) {
 	float4 neighbor_total = 0;
@@ -190,7 +183,7 @@ int get_shuffled_index(
 }
 
 bool should_swap(
-	read_only image2d_t neighbor_totals,
+	read_write image2d_t neighbor_totals,
 	float4 pixel1,
 	float4 pixel2,
 	int2 pos1,
@@ -212,10 +205,10 @@ bool should_swap(
 }
 
 kernel void sort(
-	read_only image2d_t pixels,
-	read_only image2d_t neighbor_totals,
-	read_only image2d_t updated,
-	read_only image2d_t kernel_,
+	read_write image2d_t pixels,
+	read_write image2d_t neighbor_totals,
+	read_write image2d_t updated,
+	read_write image2d_t kernel_,
 	global int normal_to_opaque_index_lut[OPAQUE_PIXEL_COUNT],
 	u32 rand1,
 	u32 rand2

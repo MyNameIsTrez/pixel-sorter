@@ -41,14 +41,38 @@ https://github.com/MyNameIsTrez/pixel-sorter/assets/32989873/e36952c7-fbaf-4745-
 
 ## Installation
 
+These steps have only been tested on my own Ubuntu 24.04.1 machine with an AMD graphics card, but it should be possible to adapt the steps to your own setup.
+
 1. Clone this repository and `cd` into it
 2. Install the requirements by running `pip install -r requirements.txt`
 3. See all the options by running `python sort.py --help`
 
+### If installing requirements fails
+
+You might have a version of Python that is too old or new.
+
+You can use pyenv to install a new Python version, along your current one:
+
+1. Run [pyenv's automatic installer](https://github.com/pyenv/pyenv?tab=readme-ov-file#automatic-installer) with `curl https://pyenv.run | bash`
+2. From [pyenv's "Suggested build environment"](https://github.com/pyenv/pyenv/wiki#suggested-build-environment), run `sudo apt update; sudo apt install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev`
+3. Run `pyenv install 3.11`
+4. Run `pyenv virtualenv 3.11.10 pixel-sorter`
+5. Run `pyenv local pixel-sorter`
+
+You should now be able to go back to step 2 of the earlier `Installation` header.
+
+You can use the `activate` and `deactivate` commands to switch between your Python environment, and your regular terminal session.
+
 ## Usage
 
 1. Generate `heart_rgb2lab.npy` by running `python rgb2lab.py input/heart.png input_npy/heart_rgb2lab.npy`
-2. Start sorting by running `python sort.py input_npy/heart_rgb2lab.npy output_npy/heart_rgb2lab.npy` (if the program prints `pyopencl._cl.LogicError: clGetPlatformIDs failed: PLATFORM_NOT_FOUND_KHR`, it means you need to install OpenCL)
+2. Start sorting by running `python sort.py input_npy/heart_rgb2lab.npy output_npy/heart_rgb2lab.npy`
+
+The program will ask you which platform you want to use, and you can run `python extra/opencl_info.py` and `clinfo` to get a list of your available options.
+
+If the program prints `pyopencl._cl.LogicError: clGetPlatformIDs failed: PLATFORM_NOT_FOUND_KHR`, it means you need to install OpenCL, which can be done with `sudo apt install pocl-opencl-icd`.
+
+You can run `export PYOPENCL_CTX=0` to pick the 1st available driver ([source](https://mirgecom.readthedocs.io/en/latest/running/device-selection.html#opencl-device-selection)).
 
 To track the sorting progress, you can open another terminal and run `python lab2rgb.py output_npy/heart_rgb2lab.npy output/heart_lab2rgb.png`, which outputs `output/heart_lab2rgb.png`.
 
