@@ -31,7 +31,7 @@ The [Color difference](https://en.wikipedia.org/wiki/Color_difference) article o
 
 > Uniform color space: a color space in which equivalent numerical differences represent equivalent visual differences, regardless of location within the color space.
 
-So in order to judge whether swapping two pixels puts them closer to more similar colors, my C++ implementation uses an optimized 2D kernel scan across the neighboring pixels in a radius. It is split into a horizontal and vertical pass, and the loops have been unrolled to make the compiler, which make the compiler able to autovectorize the loops.
+So in order to judge whether swapping two pixels puts them closer to more similar colors, my C++ implementation uses an optimized 2D kernel scan across the neighboring pixels in a radius. It is split into a horizontal and vertical pass, and the loops have been unrolled, which make the compiler able to autovectorize the loops.
 
 `lab2rgb.py` is used at the end of the program to convert the sorted CIELAB pixels back to RGB pixels. This is a completely lossless process.
 
