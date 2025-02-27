@@ -25,8 +25,6 @@ Sorting an image blurs it, but the difference with normal blurring is that all o
 
 The program repeatedly attempts to swap two random pixels, only performing the swap if that'd place them next to pixels with more similar colors.
 
-At the heart of the program lies my PyOpenCL port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `LCGBijectiveFunction` shuffling class.
-
 Before sorting, `rgb2lab.py` is used to convert the pixels of the input image from RGB to CIELAB colors. CIELAB colors were designed based on empirical studies of how the human eye perceives color, and it allows us to do significantly more accurate color comparisons than can be done with RGB.
 
 The [Color difference](https://en.wikipedia.org/wiki/Color_difference) article on Wikipedia describes how uniform color spaces like CIELAB allow getting an accurate color difference score with the formula `(R1 - R2)^2 + (G1 - G2)^2 + (B1 - B2)^2`, where `R1` is the red value of the 1st pixel:
@@ -79,6 +77,10 @@ To track the sorting progress, you can open another terminal and run `python lab
 Once you're satisfied with the result, you can stop the sorting by pressing Ctrl+C.
 
 ## Other included programs
+
+### GPU code
+
+I did not finish my PyOpenCL port of [CUDA-Shuffle](https://github.com/djns99/CUDA-Shuffle)'s `LCGBijectiveFunction` shuffling class.
 
 ### verify.py
 
